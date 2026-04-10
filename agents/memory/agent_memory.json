@@ -1,0 +1,17 @@
+# AI Shorts Agent - Memory Initialization
+# Este archivo se inicializa automáticamente
+
+{
+  "agent_id": null,
+  "created_at": "2026-04-10T00:00:00Z",
+  "total_cycles": 0,
+  "successful_cycles": 0,
+  "failed_cycles": 0,
+  "last_cycle": null,
+  "preferences": {
+    "preferred_niche": null,
+    "preferred_platform": "youtube",
+    "preferred_tone": "educational"
+  },
+  "current_context": {}
+}

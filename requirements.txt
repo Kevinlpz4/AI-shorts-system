@@ -1,0 +1,36 @@
+# AI Shorts System - Dependencies
+# ====================================
+
+# Core
+aiohttp>=3.9.0
+asyncio-mqtt>=0.16.0
+
+# OpenAI
+openai>=1.12.0
+
+# Video Processing
+moviepy>=1.0.3
+
+# TTS Providers
+elevenlabs>=1.0.0
+azure-cognitiveservices-speech>=1.33.0
+
+# APIs
+google-api-python-client>=2.120.0
+python-twitter>=3.5.0
+praw>=7.7.0
+
+# Utilities
+python-dotenv>=1.0.0
+pydantic>=2.5.0
+
+# Development
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+pytest-cov>=4.1.0
+black>=24.0.0
+ruff>=0.2.0
+
+# Optional: para producción
+# gunicorn>=21.0.0
+# fastapi>=0.110.0

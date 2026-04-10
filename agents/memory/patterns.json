@@ -1,0 +1,10 @@
+# Patterns - Patrones Aprendidos
+# Se actualiza automáticamente basándose en rendimiento
+
+{
+  "best_hooks": [],
+  "best_formats": [],
+  "successful_topics": [],
+  "failed_patterns": [],
+  "trend_history": []
+}
