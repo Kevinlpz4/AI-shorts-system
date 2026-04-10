@@ -6,7 +6,13 @@ Servicio para usar modelos de OpenAI (GPT-4, etc).
 
 import asyncio
 from typing import Optional, Dict, Any
-from openai import AsyncOpenAI
+
+try:
+    from openai import AsyncOpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+    AsyncOpenAI = None
 
 from app.config import settings
 from app.logger import logger
@@ -24,7 +30,7 @@ class OpenAIService:
     
     def __init__(self):
         self.client = None
-        if settings.OPENAI_API_KEY:
+        if OPENAI_AVAILABLE and settings.OPENAI_API_KEY:
             self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
     
     async def generate(

@@ -1,0 +1,27 @@
+TRENDS:
+----------------------------------------
+- Nueva IA de OpenAI revoluciona la industria (score: 100, source: news)
+- El futuro de los chips cuánticos (score: 100, source: news)
+- Vehículos autónomos: avances 2025 (score: 87, source: news)
+- AI revoluciona la industria médica (score: 85, source: twitter)
+- AI revoluciona la industria médica (score: 85, source: youtube)
+
+IDEA:
+----------------------------------------
+ID: idea_1
+Hook: 5 cosas sobre Nueva IA de OpenAI revoluciona la industria que debes saber
+Formato: story
+Potencial viral: 80
+Descripción: Idea basada en Nueva IA de OpenAI revoluciona la industria
+
+SCRIPT:
+----------------------------------------
+Hook: 5 cosas sobre Nueva IA de OpenAI revoluciona la industria que debes saber
+Body: Aquí te cuento los detalles sobre Nueva IA de OpenAI revoluciona la industria. Esto es lo que nadie te dice y necesitas saber. Presta atención porque esto puede cambiar tu perspectiva.
+CTA: Sígueme para más contenido educativo like this! 🧠
+Duración: 45s
+Palabras: 112
+Tono: educational
+---
+Texto completo:
+5 cosas sobre Nueva IA de OpenAI revoluciona la industria que debes saber. Aquí te cuento los detalles sobre Nueva IA de OpenAI revoluciona la industria. Esto es lo que nadie te dice y necesitas saber. Presta atención porque esto puede cambiar tu perspectiva. Sígueme para más contenido educativo like this! 🧠
