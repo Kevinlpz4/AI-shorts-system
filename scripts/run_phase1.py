@@ -1,7 +1,9 @@
 """
 Script para ejecutar el pipeline mínimo (Fase 1)
-==================================================
-Trends → Idea → Script → output.txt
+=================================================
+Trends → Idea → Evaluar → Script → Evaluar → output.txt
+
+Con evaluación y optimización de contenido.
 """
 
 import asyncio
@@ -14,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from modules.trends import TrendsAnalyzer
 from modules.idea_generator import IdeaGenerator
 from modules.script_generator import ScriptGenerator
+from modules.content_evaluator import ContentEvaluator
 
 
 async def main():
@@ -24,6 +27,7 @@ async def main():
     trends_analyzer = TrendsAnalyzer()
     idea_generator = IdeaGenerator()
     script_generator = ScriptGenerator()
+    evaluator = ContentEvaluator()
     
     # Step 1: Obtener trends
     print("\n📡 Paso 1: Obteniendo trends...")
@@ -53,7 +57,21 @@ async def main():
         return
     
     best_idea = ideas[0]
-    print(f"   ✓ Idea seleccionada: {best_idea.hook[:50]}...")
+    
+    # Step 2.1: EVALUAR IDEA
+    print("\n📊 Paso 2.1: Evaluando idea...")
+    eval_result = await evaluator.evaluate_idea(best_idea)
+    print(f"   📊 Score: {eval_result.score_total:.1f}/10 ({eval_result.clasificacion})")
+    
+    # Si no es excelente, optimizar
+    if eval_result.clasificacion == "malo" or eval_result.clasificacion == "aceptable":
+        print(f"   ⚠️ Idea {eval_result.clasificacion}, optimizando...")
+        best_idea = await evaluator.optimizar_idea(best_idea, eval_result.recomendaciones)
+        # Re-evaluar
+        eval_result = await evaluator.evaluate_idea(best_idea)
+        print(f"   📊 Score optimizado: {eval_result.score_total:.1f}/10")
+    
+    print(f"   ✓ Idea final: {best_idea.hook[:50]}...")
     
     # Step 3: Generar script
     print("\n✍️ Paso 3: Generando script...")
@@ -63,6 +81,19 @@ async def main():
         tone="educational"
     )
     print(f"   ✓ Script generado ({script.duration}s, {script.word_count} palabras)")
+    
+    # Step 3.1: EVALUAR SCRIPT
+    print("\n📊 Paso 3.1: Evaluando script...")
+    eval_script = await evaluator.evaluate_script(script)
+    print(f"   📊 Score: {eval_script.score_total:.1f}/10 ({eval_script.clasificacion})")
+    
+    # Si no es excelente, optimizar
+    if eval_script.clasificacion == "malo" or eval_script.clasificacion == "aceptable":
+        print(f"   ⚠️ Script {eval_script.clasificacion}, optimizando...")
+        script = await evaluator.optimizar_script(script, eval_script.recomendaciones)
+        # Re-evaluar
+        eval_script = await evaluator.evaluate_script(script)
+        print(f"   📊 Score optimizado: {eval_script.score_total:.1f}/10")
     
     # Step 4: Guardar output
     print("\n💾 Paso 4: Guardando output...")
@@ -79,6 +110,7 @@ Hook: {best_idea.hook}
 Formato: {best_idea.format}
 Potencial viral: {best_idea.viral_potential}
 Descripción: {best_idea.description}
+Score evaluación: {eval_result.score_total:.1f}/10 ({eval_result.clasificacion})
 
 SCRIPT:
 {'-' * 40}
@@ -88,6 +120,7 @@ CTA: {script.cta}
 Duración: {script.duration}s
 Palabras: {script.word_count}
 Tono: {script.tone}
+Score evaluación: {eval_script.score_total:.1f}/10 ({eval_script.clasificacion})
 ---
 Texto completo:
 {script.full_text}
@@ -101,8 +134,8 @@ Texto completo:
     print("✅ PIPELINE COMPLETADO")
     print("=" * 50)
     print(f"Trends: {len(trends)}")
-    print(f"Idea: {best_idea.hook[:30]}...")
-    print(f"Script: {script.duration}s, {script.word_count} palabras")
+    print(f"Idea: {best_idea.hook[:30]}... (score: {eval_result.score_total:.1f})")
+    print(f"Script: {script.duration}s, {script.word_count} palabras (score: {eval_script.score_total:.1f})")
     print(f"Output: {output_path}")
 
 

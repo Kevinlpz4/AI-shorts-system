@@ -12,7 +12,7 @@ from datetime import datetime
 from app.config import settings
 from app.logger import logger
 from modules.trends import Trend
-from services.openai_service import OpenAIService
+from services.ai_service import AIService
 
 
 @dataclass
@@ -37,7 +37,7 @@ class IdeaGenerator:
     """
     
     def __init__(self):
-        self.openai_service = OpenAIService()
+        self.ai_service = AIService()
         self.formats = settings.CONTENT_FORMATS
         
     async def generate_ideas(
@@ -64,11 +64,15 @@ class IdeaGenerator:
         
         ideas = []
         
-        # Usar IA para generar ideas si hay trends
-        if trends and settings.OPENAI_API_KEY:
-            ideas = await self._generate_with_ai(trends, styles, count)
-        else:
-            # Fallback a generación básica
+        # Intentar con IA primero
+        if trends:
+            try:
+                ideas = await self._generate_with_ai(trends, styles, count)
+            except Exception as e:
+                logger.warning(f"⚠️ Error con IA: {e}")
+        
+        # Si no se generaron ideas (o falló), usar fallback básico
+        if not ideas:
             ideas = self._generate_basic(trends, styles, count)
         
         # Ordenar por potencial viral
@@ -111,7 +115,7 @@ Responde en JSON:
 ]"""
         
         try:
-            response = await self.openai_service.generate(
+            response = await self.ai_service.generate(
                 prompt=prompt,
                 temperature=0.9,
                 max_tokens=1000

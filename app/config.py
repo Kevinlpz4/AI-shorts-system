@@ -1,6 +1,6 @@
 """
 AI Shorts System - Configuration
-=================================
+================================
 Variables globales y configuración del sistema.
 """
 
@@ -8,6 +8,10 @@ import os
 from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass, field
+
+# Cargar variables de entorno desde .env
+from dotenv import load_dotenv
+load_dotenv()
 
 
 @dataclass
@@ -33,6 +37,12 @@ class Settings:
     OPENAI_API_KEY: Optional[str] = field(
         default_factory=lambda: os.getenv("OPENAI_API_KEY")
     )
+    ANTHROPIC_API_KEY: Optional[str] = field(
+        default_factory=lambda: os.getenv("ANTHROPIC_API_KEY")
+    )
+    GEMINI_API_KEY: Optional[str] = field(
+        default_factory=lambda: os.getenv("GEMINI_API_KEY")
+    )
     ELEVENLABS_API_KEY: Optional[str] = field(
         default_factory=lambda: os.getenv("ELEVENLABS_API_KEY")
     )
@@ -46,10 +56,25 @@ class Settings:
         default_factory=lambda: os.getenv("NEWS_API_KEY")
     )
     
+    # Proveedor de IA por defecto
+    AI_PROVIDER: str = field(
+        default_factory=lambda: os.getenv("AI_PROVIDER", "gemini")  # gemini, openai, anthropic
+    )
+    
     # Configuración de OpenAI
-    OPENAI_MODEL: str = "gpt-4"
+    OPENAI_MODEL: str = "gpt-4o-mini"
     OPENAI_TEMPERATURE: float = 0.8
     OPENAI_MAX_TOKENS: int = 2000
+    
+    # Configuración de Anthropic (Claude)
+    ANTHROPIC_MODEL: str = "claude-haiku-4-20250514"  # Haiku es el más barato
+    ANTHROPIC_TEMPERATURE: float = 0.8
+    ANTHROPIC_MAX_TOKENS: int = 2000
+    
+    # Configuración de Gemini
+    GEMINI_MODEL: str = "gemini-2.0-flash-lite-001"  # El más barato y rápido
+    GEMINI_TEMPERATURE: float = 0.8
+    GEMINI_MAX_TOKENS: int = 2000
     
     # Configuración de TTS
     TTS_PROVIDER: str = "elevenlabs"  # "elevenlabs" o "azure"

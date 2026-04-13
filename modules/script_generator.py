@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from app.config import settings
 from app.logger import logger
 from modules.idea_generator import Idea
-from services.openai_service import OpenAIService
+from services.ai_service import AIService
 
 
 @dataclass
@@ -40,7 +40,7 @@ class ScriptGenerator:
     """
     
     def __init__(self):
-        self.openai_service = OpenAIService()
+        self.ai_service = AIService()
         self.default_duration = 45  # segundos
         
     async def generate_script(
@@ -68,12 +68,14 @@ class ScriptGenerator:
         cta_duration = min(5, int(duration * 0.1))   # 10% para CTA
         body_duration = duration - hook_duration - cta_duration  # 80% para body
         
-        # Generar con IA o básico
-        if settings.OPENAI_API_KEY:
-            script_data = await self._generate_with_ai(
-                idea, body_duration, tone
-            )
-        else:
+        # Intentar con IA primero
+        try:
+            if self.ai_service.is_available():
+                script_data = await self._generate_with_ai(idea, body_duration, tone)
+            else:
+                script_data = self._generate_basic(idea, body_duration, tone)
+        except Exception as e:
+            logger.warning(f"⚠️ Error con IA: {e}, usando básico")
             script_data = self._generate_basic(idea, body_duration, tone)
         
         return Script(
@@ -115,7 +117,7 @@ El guion debe:
 Responde solo con el cuerpo del guion (sin hook ni CTA)."""
         
         try:
-            body = await self.openai_service.generate(
+            body = await self.ai_service.generate(
                 prompt=prompt,
                 temperature=0.8,
                 max_tokens=500

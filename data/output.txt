@@ -8,20 +8,36 @@ TRENDS:
 
 IDEA:
 ----------------------------------------
-ID: idea_1
-Hook: 5 cosas sobre Nueva IA de OpenAI revoluciona la industria que debes saber
-Formato: story
-Potencial viral: 80
-Descripción: Idea basada en Nueva IA de OpenAI revoluciona la industria
+ID: idea_1_opt
+Hook: ⚠️ 5 cosas sobre este tema que debes saber - Esto va a cambiar todo
+Formato: list
+Potencial viral: 95
+Descripción: Lista con información clave
+Score evaluación: 6.7/10 (aceptable)
 
 SCRIPT:
 ----------------------------------------
-Hook: 5 cosas sobre Nueva IA de OpenAI revoluciona la industria que debes saber
-Body: Aquí te cuento los detalles sobre Nueva IA de OpenAI revoluciona la industria. Esto es lo que nadie te dice y necesitas saber. Presta atención porque esto puede cambiar tu perspectiva.
+Hook: ⚠️ 5 cosas sobre este tema que debes saber - Esto va a cambiar todo
+Body: [
+  {
+    "hook": "5 cosas sobre este tema que debes saber",
+    "format": "list",
+    "description": "Lista con información clave",
+    "audience": "general"
+  }
+].
 CTA: Sígueme para más contenido educativo like this! 🧠
 Duración: 45s
 Palabras: 112
 Tono: educational
+Score evaluación: 6.7/10 (aceptable)
 ---
 Texto completo:
-5 cosas sobre Nueva IA de OpenAI revoluciona la industria que debes saber. Aquí te cuento los detalles sobre Nueva IA de OpenAI revoluciona la industria. Esto es lo que nadie te dice y necesitas saber. Presta atención porque esto puede cambiar tu perspectiva. Sígueme para más contenido educativo like this! 🧠
+⚠️ 5 cosas sobre este tema que debes saber - Esto va a cambiar todo. [
+  {
+    "hook": "5 cosas sobre este tema que debes saber",
+    "format": "list",
+    "description": "Lista con información clave",
+    "audience": "general"
+  }
+]. Sígueme para más contenido educativo like this! 🧠
