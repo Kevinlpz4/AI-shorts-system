@@ -109,16 +109,16 @@ class ContentPipeline:
                 raise Exception("No se encontraron trends")
             
             # =========================================
-            # STEP 2: Generar ideas
+            # STEP 2: Generar ideas (solo 1 para optimizar)
             # =========================================
-            logger.info("\n🧠 STEP 2: Generando ideas...")
+            logger.info("\n🧠 STEP 2: Generando idea...")
             ideas = await self.idea_gen.generate_ideas(
                 trends=trends,
                 niche=self.niche,
                 styles=["story", "list", "tutorial"],
-                count=3
+                count=1  # Solo 1 idea - optimización de costo
             )
-            logger.info(f"   ✓ {len(ideas)} ideas generadas")
+            logger.info(f"   ✓ {len(ideas)} idea generada")
             
             # Seleccionar mejor idea (la de mayor potencial)
             best_idea = ideas[0]
@@ -136,12 +136,12 @@ class ContentPipeline:
             logger.info(f"   ✓ Guion de {script.duration}s ({script.word_count} palabras)")
             
             # =========================================
-            # STEP 4: Generar hook
+            # STEP 4: Generar hook (solo 1 para optimizar)
             # =========================================
             logger.info("\n🎯 STEP 4: Generando hook...")
             hooks = await self.hook_gen.generate_hooks(
                 script=script,
-                variations=3
+                variations=1  # Solo 1 hook - optimización de costo
             )
             best_hook = self.hook_gen.select_best_hook(hooks)
             logger.info(f"   ✓ Hook: {best_hook.text[:50]}...")

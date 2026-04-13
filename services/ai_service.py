@@ -60,6 +60,10 @@ class AIService:
     _instance = None
     _initialized = False
     
+    # Contadores de uso (reseteables)
+    _api_requests: int = 0
+    _cache_hits: int = 0
+    
     def __new__(cls, provider: Optional[str] = None):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -190,14 +194,29 @@ class AIService:
         return await self._generate_fallback(prompt)
     
     def _get_available_providers_order(self) -> List[str]:
-        """Retorna lista de proveedores disponibles en orden de prioridad."""
+        """Retorna lista de proveedores disponibles.
+        
+        Usa el proveedor configurado primero, luego los demás.
+        """
+        # Proveedor configurado primero
+        configured = self.provider_name
+        
         available = []
         
-        if self.openai_client:
+        # Primero el proveedor configurado (si tiene cliente)
+        if configured == "openai" and self.openai_client:
             available.append("openai")
-        if self.anthropic_client:
+        elif configured == "anthropic" and self.anthropic_client:
             available.append("anthropic")
-        if self.gemini_client:
+        elif configured == "gemini" and self.gemini_client:
+            available.append("gemini")
+        
+        # Luego los otros proveedores disponibles
+        if self.openai_client and "openai" not in available:
+            available.append("openai")
+        if self.anthropic_client and "anthropic" not in available:
+            available.append("anthropic")
+        if self.gemini_client and "gemini" not in available:
             available.append("gemini")
         
         return available
@@ -220,6 +239,12 @@ class AIService:
         max_tokens: int = None
     ) -> str:
         """Intenta generar con un solo proveedor."""
+        
+        # Verificar si este proveedor ya está marcado como sin créditos
+        if hasattr(self, '_providers_without_credits') and provider in self._providers_without_credits:
+            logger.info(f"⏭️ {provider.upper()} ya sin créditos (skip)")
+            raise Exception(f"{provider} sin créditos previamente")
+        
         try:
             if provider == "openai":
                 return await self._generate_openai(prompt, model, temperature or 0.8, max_tokens or 2000)
@@ -229,8 +254,12 @@ class AIService:
                 return await self._generate_gemini(prompt, model, temperature or 0.8, max_tokens or 2000)
         except Exception as e:
             error_msg = str(e)
-            if "quota" in error_msg.lower() or "rate" in error_msg.lower() or "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
-                logger.warning(f"⚠️ {provider.upper()} sin créditos: {error_msg[:50]}...")
+            if "quota" in error_msg.lower() or "rate" in error_msg.lower() or "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg or "insufficient_quota" in error_msg:
+                logger.warning(f"⚠️ {provider.upper()} sin créditos, marcándolo para no reintentar...")
+                # Marcar este proveedor como sin créditos
+                if not hasattr(self, '_providers_without_credits'):
+                    self._providers_without_credits = set()
+                self._providers_without_credits.add(provider)
             else:
                 logger.warning(f"⚠️ Error con {provider.upper()}: {error_msg[:50]}...")
         
@@ -319,53 +348,66 @@ class AIService:
         return response.text
     
     async def _generate_fallback(self, prompt: str) -> str:
-        """Fallback cuando ningún proveedor está disponible."""
-        logger.warning("⚠️ Fallback activado - retornando contenido básico")
+        """Fallback cuando ningún proveedor está disponible - usa el mock script."""
+        logger.warning("⚠️ Fallback activado - usando mock script")
         
-        import random
+        # Intentar importar el mock
+        try:
+            from data.mock_script import get_mock_script
+            mock = get_mock_script()
+        except ImportError:
+            logger.warning("⚠️ No se pudo importar mock_script")
+            mock = None
         
-        # Templates diversos para ideas
-        idea_hooks = [
-            "5 cosas sobre este tema que debes saber",
-            "Por qué esto está cambiando TODO",
-            "El secreto que nadie te cuenta",
-            "3 errores que estás cometiendo",
-            "Esto va a revolucionar tu forma de pensar",
-            "Lo que los expertos no te dicen",
-            "El futuro de esta industria en 2025",
-            "Por qué todos hablan de esto"
-        ]
+        prompt_lower = prompt.lower()
         
-        formats = ["list", "story", "fact", "tutorial", "reaction"]
-        audiences = ["general", "profesionales", "principiantes", "emprendedores", "estudiantes"]
+        # Si el prompt es para script/guion, retornar el mock completo
+        if "guion" in prompt_lower or "script" in prompt.lower():
+            if mock:
+                return mock
+            else:
+                # Mock hardcoded de emergencia
+                return """🎬 HOOK (0-3s):
+"Esta inteligencia artificial ya está reemplazando trabajos… y probablemente ya la has usado."
+
+📝 SCRIPT COMPLETO:
+Esta inteligencia artificial ya está cambiando el mundo del trabajo, y lo más impactante es que probablemente ya la has usado.
+
+Se llama ChatGPT, y puede hacer tareas que antes tomaban horas en solo minutos.
+Desde escribir textos, responder clientes, hasta programar código básico.
+
+Empresas de todo el mundo ya la están usando para automatizar procesos y reducir costos.
+
+Pero aquí viene lo fuerte,
+no necesitas ser experto para usarla.
+
+Hoy, cualquier persona puede hacer el trabajo de varios con solo saber cómo usar esta herramienta.
+
+Y esto no es el futuro,
+ya está pasando ahora.
+
+La verdadera pregunta es,
+vas a aprender a usarla a tu favor,
+o vas a ser reemplazado por alguien que sí lo haga.
+
+🎯 CTA: Sígueme para más contenido de tecnología que va a cambiar tu vida 🔥"""
         
-        selected_hook = random.choice(idea_hooks)
-        selected_format = random.choice(formats)
-        selected_audience = random.choice(audiences)
-        
-        # Generar contenido básico basado en el prompt
+        # Si es para idea, retornar idea simple
         if "idea" in prompt.lower():
             import json
+            import random
             idea = {
-                "hook": selected_hook,
-                "format": selected_format,
-                "description": f"Contenido {selected_format} para аудиенция {selected_audience}",
-                "audience": selected_audience,
-                "topic": "Tema trending actual",
-                "potential_views": random.randint(10000, 500000)
+                "hook": "Esta IA ya está reemplazando trabajos",
+                "format": "story",
+                "description": "Contenido sobre inteligencia artificial y el futuro del trabajo",
+                "audience": "general",
+                "topic": "Inteligencia Artificial",
+                "potential_views": random.randint(100000, 500000)
             }
             return json.dumps([idea], ensure_ascii=False)
         
-        elif "guion" in prompt.lower() or "script" in prompt.lower():
-            import json
-            script = {
-                "hook": selected_hook,
-                "body": f"Este es un tema que está revolucionando la industria. Es importante que prestes atención porque esto puede cambiar tu perspectiva. El tema tiene múltiples facetas que explorar. Primeiro, hay un aspecto fundamental que pocos conocen. Segundo, existe un elemento clave que hace la diferencia. Además, hay tendencias emergentes que están transformando el mercado. Es crucial entender el contexto y las implicaciones de todo esto. Mantente informado porque esto apenas comienza.",
-                "cta": "Sígueme para más contenido like este! Comenta qué tema quieres que cubra"
-            }
-            return json.dumps(script, ensure_ascii=False)
-        else:
-            return "Contenido generado con fallback básico."
+        # Default
+        return mock or "Contenido de fallback"
     
     async def generate_json(
         self,
@@ -471,6 +513,28 @@ Responde en JSON:
   "hook": "...",
   "body": "...",
   "cta": "..."
-}}"""
+ }}"""
         
         return await self.generate_json(prompt)
+    
+    # =========================================
+    # OBSERVABILIDAD
+    # =========================================
+    
+    @classmethod
+    def reset_counters(cls):
+        """Resetea contadores entre ejecuciones."""
+        cls._api_requests = 0
+        cls._cache_hits = 0
+        if hasattr(cls, '_providers_without_credits'):
+            cls._providers_without_credits.clear()
+        logger.info("📊 Contadores de AI Service reseteados")
+    
+    @classmethod
+    def get_stats(cls) -> dict:
+        """Retorna estadísticas de uso."""
+        return {
+            "api_requests": cls._api_requests,
+            "cache_hits": cls._cache_hits,
+            "total_requests": cls._api_requests + cls._cache_hits
+        }

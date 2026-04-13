@@ -64,7 +64,7 @@ class TrendsAnalyzer:
             Lista de tendencias ordenadas por potencial viral
         """
         sources = sources or ["news", "twitter", "youtube"]
-        logger.info(f"📡 Obteniendo trends de: {sources} (niche: {niche})")
+        logger.info(f"📡 Obteniendo trends de: {sources} (nicho: {niche})")
         
         all_trends = []
         

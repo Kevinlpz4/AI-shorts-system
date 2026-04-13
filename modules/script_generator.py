@@ -72,19 +72,34 @@ class ScriptGenerator:
         # Intentar con IA primero
         try:
             if self.ai_service.is_available():
-                script_data = await self._generate_with_ai(idea, body_duration, tone)
+                result = await self._generate_with_ai(idea, body_duration, tone)
+                
+                # Detectar si es un mock script completo (contiene 🎬 o es muy largo)
+                if isinstance(result, str) and ("🎬" in result or "HOOK" in result or len(result) > 200):
+                    # Es un mock completo - usarlo directamente
+                    # Parsear el mock para obtener hook, body, cta
+                    script_data = self._parse_mock_script(result, idea.hook)
+                else:
+                    script_data = result
             else:
                 script_data = self._generate_basic(idea, body_duration, tone)
         except Exception as e:
             logger.warning(f"⚠️ Error con IA: {e}, usando básico")
             script_data = self._generate_basic(idea, body_duration, tone)
         
-        # Limpiar el body si es JSON raw o fallback trigger
-        body = script_data["body"]
-        if (body.strip().startswith("[") or body.strip().startswith("{") or 
-            "FALLBACK_TRIGGER" in body or "contenido básico" in body):
-            # Es contenido del fallback - generar contenido real
-            body = self._generate_basic(idea, body_duration, tone)["body"]
+        # Limpiar el body si es muy corto o genérico -> usar mock
+        body = script_data.get("body", "")
+        
+        # Si el body es muy corto (menos de 100 chars) o parece genérico, usar el mock
+        if len(body.strip()) < 100 or "detalles sobre" in body or "información" in body.lower():
+            logger.info("📝 Usando mock script completo...")
+            try:
+                from data.mock_script import get_mock_script
+                mock = get_mock_script()
+                script_data = self._parse_mock_script(mock, idea.hook)
+                body = script_data.get("body", body)
+            except Exception as e:
+                logger.warning(f"No se pudo cargar mock: {e}")
         
         return Script(
             id=f"script_{idea.id}",
@@ -106,39 +121,53 @@ class ScriptGenerator:
         body_duration: int,
         tone: str
     ) -> Dict[str, str]:
-        """Genera guion usando OpenAI."""
+        """Genera guion usando IA o fallback con mock."""
         
-        prompt = f"""Eres un experto en guiones para YouTube Shorts.
-Genera el cuerpo de un guion basado en esta idea:
+        # Prompt para generar un guion completo (no solo el body)
+        prompt = f"""Genera un guion completo para YouTube Shorts (~45 segundos) sobre este tema:
 
+Tema: {idea.topic}
 Hook: {idea.hook}
 Formato: {idea.format}
 Tono: {tone}
-Duración del cuerpo: ~{body_duration} segundos
 
-El guion debe:
-- Ser conversacional y energético
-- Aportar valor real al espectador
-- Usar oraciones cortas y directas
-- Evitar relleno innecesario
-- Estar en español
+El guion debe tener:
+- Hook inicial (3-5 segundos)
+- Body con contenido desarrollado
+- CTA final
 
-Responde solo con el cuerpo del guion (sin hook ni CTA)."""
+Responde en JSON con formato: {{"hook": "...", "body": "...", "cta": "..."}}"""
         
         try:
-            body = await self.ai_service.generate(
+            result = await self.ai_service.generate(
                 prompt=prompt,
                 temperature=0.8,
-                max_tokens=500
+                max_tokens=1000
             )
+            
+            # Si el resultado es muy largo o tiene markers de mock, es el mock completo
+            if isinstance(result, str) and ("🎬" in result or len(result) > 300):
+                # Es el mock completo - parsearlo
+                return self._parse_mock_script(result, idea.hook)
+            
+            # Intentar parsear como JSON
+            try:
+                import json
+                data = json.loads(result)
+                return {"body": data.get("body", result), "cta": data.get("cta", "Sígueme para más contenido 🔥")}
+            except:
+                # Si no es JSON, usar el resultado como body
+                return {"body": result, "cta": "Sígueme para más contenido 🔥"}
+                
         except Exception as e:
             logger.warning(f"Error con IA: {e}")
-            body = self._get_default_body(idea.topic, tone)
-        
-        return {
-            "body": body.strip(),
-            "cta": self._get_cta(tone)
-        }
+            # Cuando falla, importar el mock directamente
+            try:
+                from data.mock_script import get_mock_script
+                mock = get_mock_script()
+                return self._parse_mock_script(mock, idea.hook)
+            except:
+                return self._generate_basic(idea, body_duration, tone)
     
     def _generate_basic(
         self,
@@ -205,6 +234,46 @@ Responde solo con las variaciones, una por línea."""
         
         # Por ahora retornar solo la versión original
         return [script.full_text]
+    
+    def _parse_mock_script(self, mock_text: str, fallback_hook: str) -> Dict[str, str]:
+        """Parsea un mock script completo para obtener hook, body, cta."""
+        import re
+        
+        hook = fallback_hook
+        body = ""
+        cta = ""
+        
+        # Extraer el hook si está marcado
+        hook_match = re.search(r'(?:HOOK|hook)[^\n]*(?:\n\s*)?(["\']?)([^"\']+)\1', mock_text, re.IGNORECASE)
+        if not hook_match:
+            # Buscar líneas que empiecen con "
+            hook_match = re.search(r'^\s*["\']?([^"\']+)["\']?\s*$', mock_text, re.MULTILINE)
+        
+        # Extraer CTA si está marcada
+        cta_match = re.search(r'CTA[:\s]+([^\n]+)', mock_text, re.IGNORECASE)
+        if cta_match:
+            cta = cta_match.group(1).strip()
+        
+        # El body es todo lo que no es hook o cta
+        lines = mock_text.split('\n')
+        body_lines = []
+        for line in lines:
+            line = line.strip()
+            # Skip empty, hook lines, cta lines
+            if not line:
+                continue
+            if line.startswith('🎬') or 'HOOK' in line.upper() or 'CTA' in line.upper():
+                continue
+            if '📝' in line or 'SCRIPT' in line.upper():
+                continue
+            body_lines.append(line)
+        
+        body = ' '.join(body_lines)
+        
+        if not cta:
+            cta = "Sígueme para más contenido de tecnología 🔥"
+        
+        return {"body": body, "cta": cta}
     
     def estimate_duration(self, text: str) -> int:
         """Estima la duración del texto en segundos."""

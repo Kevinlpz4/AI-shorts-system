@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from app.config import settings
 from app.logger import logger
 from modules.script_generator import Script
-from services.openai_service import OpenAIService
+from services.ai_service import AIService  # Usar AIService unificado
 
 
 @dataclass
@@ -42,7 +42,7 @@ class HookGenerator:
     """
     
     def __init__(self):
-        self.openai_service = OpenAIService()
+        self.ai_service = AIService()  # Usar servicio unificado
         
         # Templates por tipo
         self.templates = {
@@ -150,10 +150,10 @@ Tipos a usar: question, statement, reveal, list, trending, controversial
 Responde en JSON:
 [
   {{"text": "...", "type": "..."}}
-]"""
+ ]"""
         
         try:
-            response = await self.openai_service.generate(
+            response = await self.ai_service.generate(
                 prompt=prompt,
                 temperature=0.9,
                 max_tokens=500
