@@ -215,6 +215,7 @@ class ContentEvaluator:
         script_optimizado = Script(
             id=f"{script.id}_opt",
             idea_id=script.idea_id,
+            topic=script.topic,  # Agregado
             hook=hook,
             body=body,
             cta=cta,

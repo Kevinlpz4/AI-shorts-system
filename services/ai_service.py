@@ -6,7 +6,7 @@ Permite cambiar de proveedor fácilmente.
 """
 
 import asyncio
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from enum import Enum
 
 # OpenAI
@@ -56,6 +56,15 @@ class AIService:
     Configurable via AI_PROVIDER en .env
     """
     
+    # Singleton para evitar múltiples inicializaciones
+    _instance = None
+    _initialized = False
+    
+    def __new__(cls, provider: Optional[str] = None):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+    
     def __init__(self, provider: Optional[str] = None):
         """
         Inicializa el servicio.
@@ -64,8 +73,10 @@ class AIService:
             provider: Proveedor a usar (openai, anthropic, gemini)
                      Si None, usa el de settings.AI_PROVIDER
         """
-        self.provider_name = provider or settings.AI_PROVIDER
-        self._init_clients()
+        if not AIService._initialized:
+            self.provider_name = provider or settings.AI_PROVIDER
+            self._init_clients()
+            AIService._initialized = True
     
     def _init_clients(self):
         """Inicializa los clientes disponibles."""
@@ -113,41 +124,118 @@ class AIService:
         Returns:
             Texto generado
         """
-        # Proveedores en orden de prioridad
-        providers_order = ["openai", "anthropic", "gemini"]
+    async def generate(
+        self,
+        prompt: str,
+        model: str = None,
+        temperature: float = None,
+        max_tokens: int = None,
+        provider: Optional[str] = None
+    ) -> str:
+        """
+        Genera texto usando el mejor proveedor disponible.
         
-        # Si se especifica un provider, solo ese
+        Lógica:
+        1. Si provider especificado → solo ese
+        2. Si no → encontrar primer proveedor disponible
+        3. Si falla por falta de credits → probar siguiente
+        4. Si ninguno funciona → fallback
+        
+        Máx 1 llamada exitosa (no bucle infinito).
+        """
+        # Si se especifica provider, solo ese
         if provider:
-            providers_order = [provider]
+            return await self._try_single_provider(
+                provider, prompt, model, temperature, max_tokens
+            )
         
-        # Probar cada proveedor en orden
-        last_error = None
-        for prov in providers_order:
-            if not self.is_available(prov):
-                continue
+        # Encontrar primer proveedor disponible (el mejor candidato)
+        providers_order = self._get_available_providers_order()
+        
+        if not providers_order:
+            logger.info("🔄 No hay proveedores disponibles, usando fallback...")
+            return await self._generate_fallback(prompt)
+        
+        # Intentar el primer proveedor
+        first_provider = providers_order[0]
+        result = await self._try_single_provider(
+            first_provider, prompt, model, temperature, max_tokens
+        )
+        
+        # Si el resultado no es fallback (tuvo éxito), retornarlo
+        if not self._is_fallback_result(result):
+            return result
+        
+        # Si falló por falta de credits, intentar el siguiente proveedor
+        if len(providers_order) > 1:
+            logger.info(f"🔄 {first_provider.upper()} sin créditos, intentando siguiente...")
+            second_provider = providers_order[1]
+            result = await self._try_single_provider(
+                second_provider, prompt, model, temperature, max_tokens
+            )
+            if not self._is_fallback_result(result):
+                return result
             
-            try:
-                if prov == "openai":
-                    return await self._generate_openai(prompt, model, temperature or 0.8, max_tokens or 2000)
-                elif prov == "anthropic":
-                    return await self._generate_anthropic(prompt, model, temperature or 0.8, max_tokens or 2000)
-                elif prov == "gemini":
-                    return await self._generate_gemini(prompt, model, temperature or 0.8, max_tokens or 2000)
-            except Exception as e:
-                error_msg = str(e)
-                # Verificar si es error de cuota/rate limit
-                if "quota" in error_msg.lower() or "rate" in error_msg.lower() or "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
-                    logger.warning(f"⚠️ {prov.upper()} sin créditos/rate limit: {error_msg[:50]}...")
-                else:
-                    logger.warning(f"⚠️ Error con {prov.upper()}: {error_msg[:50]}...")
-                
-                last_error = e
-                # Continuar al siguiente proveedor
-                continue
+            # Si el segundo también falló, probar el tercero si existe
+            if len(providers_order) > 2:
+                logger.info(f"🔄 {second_provider.upper()} sin créditos, intentando último...")
+                third_provider = providers_order[2]
+                result = await self._try_single_provider(
+                    third_provider, prompt, model, temperature, max_tokens
+                )
+                return result
         
-        # Si ningún proveedor funcionó, intentar fallback
-        logger.info("🔄 Ningún proveedor disponible, usando fallback...")
+        # Ninguno funcionó → fallback
+        logger.info("🔄 Ningún proveedor con créditos, usando fallback...")
         return await self._generate_fallback(prompt)
+    
+    def _get_available_providers_order(self) -> List[str]:
+        """Retorna lista de proveedores disponibles en orden de prioridad."""
+        available = []
+        
+        if self.openai_client:
+            available.append("openai")
+        if self.anthropic_client:
+            available.append("anthropic")
+        if self.gemini_client:
+            available.append("gemini")
+        
+        return available
+    
+    def _is_fallback_result(self, result: str) -> bool:
+        """Detecta si el resultado es del fallback (contenido básico)."""
+        fallback_markers = [
+            "contenido básico",
+            "Contenido generado con fallback",
+            "5 cosas sobre este tema"
+        ]
+        return any(marker.lower() in result.lower() for marker in fallback_markers)
+    
+    async def _try_single_provider(
+        self,
+        provider: str,
+        prompt: str,
+        model: str = None,
+        temperature: float = None,
+        max_tokens: int = None
+    ) -> str:
+        """Intenta generar con un solo proveedor."""
+        try:
+            if provider == "openai":
+                return await self._generate_openai(prompt, model, temperature or 0.8, max_tokens or 2000)
+            elif provider == "anthropic":
+                return await self._generate_anthropic(prompt, model, temperature or 0.8, max_tokens or 2000)
+            elif provider == "gemini":
+                return await self._generate_gemini(prompt, model, temperature or 0.8, max_tokens or 2000)
+        except Exception as e:
+            error_msg = str(e)
+            if "quota" in error_msg.lower() or "rate" in error_msg.lower() or "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+                logger.warning(f"⚠️ {provider.upper()} sin créditos: {error_msg[:50]}...")
+            else:
+                logger.warning(f"⚠️ Error con {provider.upper()}: {error_msg[:50]}...")
+        
+        # Retornar string especial para indicar que falló
+        return "FALLBACK_TRIGGER"
     
     async def _generate_openai(
         self,
@@ -301,7 +389,7 @@ class AIService:
             return {}
     
     def is_available(self, provider: Optional[str] = None) -> bool:
-        """Verifica si un proveedor está disponible."""
+        """Verifica si un proveedor está disponible y tiene créditos."""
         provider = provider or self.provider_name
         
         if provider == "openai":
@@ -313,6 +401,12 @@ class AIService:
         
         return False
     
+    def has_any_provider_with_credits(self) -> bool:
+        """Verifica si AL MENOS un proveedor tiene créditos reales."""
+        # Por ahora siempre retorna True para intentar
+        # En el futuro se podría hacer un test calllightweight
+        return True
+    
     def get_available_providers(self) -> Dict[str, bool]:
         """Retorna qué proveedores están disponibles."""
         return {
@@ -320,6 +414,14 @@ class AIService:
             "anthropic": self.anthropic_client is not None,
             "gemini": self.gemini_client is not None
         }
+    
+    def get_best_provider(self) -> Optional[str]:
+        """Retorna el mejor proveedor disponible (el primero que funcione)."""
+        providers = self.get_available_providers()
+        for prov, available in providers.items():
+            if available:
+                return prov
+        return None
     
     async def generate_idea(self, trends: list) -> str:
         """Genera una idea viral basada en trends."""

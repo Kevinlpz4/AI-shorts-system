@@ -19,6 +19,7 @@ class Script:
     """Representa un guion para short."""
     id: str
     idea_id: str
+    topic: str  # Agregado para que hooks.py funcione
     hook: str
     body: str
     cta: str
@@ -78,20 +79,23 @@ class ScriptGenerator:
             logger.warning(f"⚠️ Error con IA: {e}, usando básico")
             script_data = self._generate_basic(idea, body_duration, tone)
         
-        # Limpiar el body si es JSON (del fallback)
-        if body.strip().startswith("[") or body.strip().startswith("{"):
-            # Es JSON raw - generar contenido real
+        # Limpiar el body si es JSON raw o fallback trigger
+        body = script_data["body"]
+        if (body.strip().startswith("[") or body.strip().startswith("{") or 
+            "FALLBACK_TRIGGER" in body or "contenido básico" in body):
+            # Es contenido del fallback - generar contenido real
             body = self._generate_basic(idea, body_duration, tone)["body"]
         
         return Script(
             id=f"script_{idea.id}",
             idea_id=idea.id,
+            topic=idea.topic,  # Agregado para hooks.py
             hook=idea.hook,  # Usar el hook de la idea
             body=body,
             cta=script_data["cta"],
             full_text=f"{idea.hook}. {body} {script_data['cta']}",
             duration=duration,
-            word_count=int(duration * 2.5),  # ~150 words/min
+            word_count=int(duration * 2.5),  # ~150 palabras/min
             tone=tone,
             format=idea.format
         )
