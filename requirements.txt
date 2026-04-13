@@ -5,8 +5,10 @@
 aiohttp>=3.9.0
 asyncio-mqtt>=0.16.0
 
-# OpenAI
+# AI Providers (OpenAI, Anthropic, Gemini)
 openai>=1.12.0
+anthropic>=0.20.0
+google-genai>=1.0.0
 
 # Video Processing
 moviepy>=1.0.3

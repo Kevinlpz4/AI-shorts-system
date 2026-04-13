@@ -78,13 +78,18 @@ class ScriptGenerator:
             logger.warning(f"⚠️ Error con IA: {e}, usando básico")
             script_data = self._generate_basic(idea, body_duration, tone)
         
+        # Limpiar el body si es JSON (del fallback)
+        if body.strip().startswith("[") or body.strip().startswith("{"):
+            # Es JSON raw - generar contenido real
+            body = self._generate_basic(idea, body_duration, tone)["body"]
+        
         return Script(
             id=f"script_{idea.id}",
             idea_id=idea.id,
             hook=idea.hook,  # Usar el hook de la idea
-            body=script_data["body"],
+            body=body,
             cta=script_data["cta"],
-            full_text=f"{idea.hook}. {script_data['body']} {script_data['cta']}",
+            full_text=f"{idea.hook}. {body} {script_data['cta']}",
             duration=duration,
             word_count=int(duration * 2.5),  # ~150 words/min
             tone=tone,
