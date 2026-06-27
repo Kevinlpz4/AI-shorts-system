@@ -58,11 +58,16 @@ class Settings:
     
     # Proveedor de IA por defecto
     AI_PROVIDER: str = field(
-        default_factory=lambda: os.getenv("AI_PROVIDER", "gemini")  # gemini, openai, anthropic
+        default_factory=lambda: os.getenv("AI_PROVIDER", "openai")
     )
     
-    # Configuración de OpenAI
-    OPENAI_MODEL: str = "gpt-4o-mini"
+    # Configuración de OpenAI (también compatible con OpenRouter)
+    OPENAI_MODEL: str = field(
+        default_factory=lambda: os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    )
+    OPENAI_BASE_URL: Optional[str] = field(
+        default_factory=lambda: os.getenv("OPENAI_BASE_URL")
+    )
     OPENAI_TEMPERATURE: float = 0.8
     OPENAI_MAX_TOKENS: int = 2000
     
@@ -128,7 +133,7 @@ class Settings:
         "tutorial",   # Tutorial/how-to
         "fact",       # Dato curioso
         "comparison", # Comparación
-        " debunk"     # Desmentir mito
+        "debunk"      # Desmentir mito
     ])
     
     # Tonos de contenido
