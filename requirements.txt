@@ -22,6 +22,9 @@ google-api-python-client>=2.120.0
 python-twitter>=3.5.0
 praw>=7.7.0
 
+# RSS / News
+feedparser>=6.0.0
+
 # Utilities
 python-dotenv>=1.0.0
 pydantic>=2.5.0

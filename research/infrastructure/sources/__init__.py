@@ -11,10 +11,13 @@ Cada adapter:
 
 Adapters incluidos:
   - MockResearchSource: datos simulados para testing y desarrollo
+  - GoogleNewsRSSSource: feed RSS público de Google News (sin API key)
 """
 
 from research.infrastructure.sources.mock_source import MockResearchSource
+from research.infrastructure.sources.google_news_rss import GoogleNewsRSSSource
 
 __all__ = [
     "MockResearchSource",
+    "GoogleNewsRSSSource",
 ]
