@@ -5,6 +5,7 @@ Interfaz de usuario principal.
 Usa los casos de uso, nunca llama a infraestructura directamente.
 """
 import asyncio
+import dataclasses
 import logging
 from typing import Optional
 from uuid import UUID
@@ -18,10 +19,12 @@ from application.dto.responses import ContentResult
 
 from research.application.dtos import (
     AutoDiscoverDTO,
-    RegisterManualDTO,
-    ApproveDTO,
-    RejectDTO,
-    ListTopicsDTO,
+    ManualInputDTO,
+    ReviewDecisionDTO,
+    ListTopicsQuery,
+    ResearchResultDTO,
+    ReviewResultDTO,
+    ResearchTopicDTO,
 )
 from research.domain.value_objects.research_status import ResearchStatus
 
@@ -144,8 +147,8 @@ class CLICommands:
         dto = AutoDiscoverDTO(query=query, limit=limit, source_names=sources)
         result = await self._container.auto_discover_topics.execute(dto)
 
-        discovered = [t.model_dump() for t in result.discovered]
-        duplicates = [t.model_dump() for t in result.duplicates]
+        discovered = [dataclasses.asdict(t) for t in result.discovered]
+        duplicates = [dataclasses.asdict(t) for t in result.duplicates]
 
         logger.info(f"✅ {len(discovered)} topics descubiertos")
         if duplicates:
@@ -188,10 +191,10 @@ class CLICommands:
                 logger.error(f"❌ Estado inválido: {status}. Válidos: {valid}")
                 return []
 
-        dto = ListTopicsDTO(status=status_filter, limit=limit)
-        result = await self._container.list_topics.execute(dto)
+        query = ListTopicsQuery(status=status_filter.value if status_filter else None, limit=limit)
+        topic_dtos = await self._container.list_topics.execute(query)
 
-        topics = [t.model_dump() for t in result.topics]
+        topics = [dataclasses.asdict(t) for t in topic_dtos]
         logger.info(f"📋 {len(topics)} topics encontrados")
 
         for t in topics:
@@ -228,11 +231,11 @@ class CLICommands:
             return None
 
         logger.info(f"✅ Aprobando topic: {topic_id}")
-        dto = ApproveDTO(topic_id=uid)
-        result = await self._container.approve_topic.execute(dto)
+        dto = ReviewDecisionDTO(topic_id=uid)
+        result: ReviewResultDTO = await self._container.approve_topic.execute(dto)
 
         if result.topic:
-            data = result.topic.model_dump()
+            data = dataclasses.asdict(result.topic)
             logger.info("   ✅ Topic aprobado: %s", data["title"][:60])
             return data
         else:
@@ -256,11 +259,11 @@ class CLICommands:
             return None
 
         logger.info(f"❌ Rechazando topic: {topic_id}")
-        dto = RejectDTO(topic_id=uid)
-        result = await self._container.reject_topic.execute(dto)
+        dto = ReviewDecisionDTO(topic_id=uid)
+        result: ReviewResultDTO = await self._container.reject_topic.execute(dto)
 
         if result.topic:
-            data = result.topic.model_dump()
+            data = dataclasses.asdict(result.topic)
             logger.info("   ❌ Topic rechazado: %s", data["title"][:60])
             return data
         else:
@@ -286,11 +289,11 @@ class CLICommands:
         """
         logger.info(f"📝 Registrando topic manual: {title}")
 
-        dto = RegisterManualDTO(title=title, url=url, description=description)
-        result = await self._container.register_manual_input.execute(dto)
+        dto = ManualInputDTO(title=title, url=url, description=description)
+        result: ResearchResultDTO = await self._container.register_manual_input.execute(dto)
 
         if result.topic:
-            data = result.topic.model_dump()
+            data = dataclasses.asdict(result.topic)
             if result.is_duplicate:
                 logger.warning(
                     "   ⚠️ Topic marcado como posible duplicado: %s",

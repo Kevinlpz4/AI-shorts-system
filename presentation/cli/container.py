@@ -41,7 +41,7 @@ from research.domain.services.duplicate_detector import (
 )
 from research.domain.services.research_scorer import ResearchScorer
 from research.application.use_cases.auto_discover import AutoDiscoverTopicsUseCase
-from research.application.use_cases.register_manual import RegisterManualInputUseCase
+from research.application.use_cases.manual_input import RegisterManualInputUseCase
 from research.application.use_cases.approve_topic import ApproveTopicUseCase
 from research.application.use_cases.reject_topic import RejectTopicUseCase
 from research.application.use_cases.list_topics import ListTopicsUseCase
