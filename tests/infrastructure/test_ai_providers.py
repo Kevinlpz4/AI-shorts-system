@@ -46,13 +46,14 @@ class TestOpenAICompatibleProvider:
         p = OpenAICompatibleProvider(api_key="sk-test")
         assert p.available is True
 
+    @pytest.mark.integration
     @pytest.mark.skipif(
         not os.getenv("OPENROUTER_API_KEY") and not os.getenv("OPENAI_API_KEY"),
         reason="Requiere OPENROUTER_API_KEY o OPENAI_API_KEY en .env",
     )
     @pytest.mark.asyncio
     async def test_generate_with_real_openrouter(self):
-        """Test de integración real con OpenRouter."""
+        """Test de integración real con OpenRouter (solo con -m integration)."""
         api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
         p = OpenAICompatibleProvider(
             api_key=api_key,
@@ -66,13 +67,14 @@ class TestOpenAICompatibleProvider:
         assert isinstance(result, str)
         assert len(result) > 0
 
+    @pytest.mark.integration
     @pytest.mark.skipif(
         not os.getenv("OPENROUTER_API_KEY") and not os.getenv("OPENAI_API_KEY"),
         reason="Requiere OPENROUTER_API_KEY o OPENAI_API_KEY en .env",
     )
     @pytest.mark.asyncio
     async def test_generate_json_with_real_api(self):
-        """generate_json debe parsear JSON de la respuesta real."""
+        """generate_json con OpenRouter real (solo con -m integration)."""
         api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
         p = OpenAICompatibleProvider(
             api_key=api_key,
@@ -143,13 +145,14 @@ class TestOpenRouterProvider:
         assert isinstance(p, OpenAICompatibleProvider)
         assert isinstance(p, AIProvider)
 
+    @pytest.mark.integration
     @pytest.mark.skipif(
         not os.getenv("OPENROUTER_API_KEY"),
         reason="Requiere OPENROUTER_API_KEY en .env",
     )
     @pytest.mark.asyncio
     async def test_generate_with_real_api(self):
-        """Test de integración real con OpenRouter."""
+        """Test de integración real con OpenRouter (solo con -m integration)."""
         p = OpenRouterProvider(api_key=os.getenv("OPENROUTER_API_KEY"))
         result = await p.generate("decí 'hola' en una palabra")
         assert isinstance(result, str)
