@@ -13,7 +13,8 @@ from app.config import settings
 from domain.services.content_evaluator import ContentEvaluator
 
 # ── Infrastructure ──
-from infrastructure.ai.openai_provider import OpenAIProvider
+from infrastructure.ai.openrouter_provider import OpenRouterProvider
+from infrastructure.ai.openai_compatible import OpenAICompatibleProvider
 from infrastructure.ai.mock_provider import MockAIProvider
 from infrastructure.tts.mock_provider import MockTTSProvider
 from infrastructure.cache.memory_cache import MemoryCache
@@ -78,23 +79,59 @@ class Container:
         self.fallback_ai = MockAIProvider()
 
     def _create_primary_ai(self):
-        """Crea el proveedor de IA principal según configuración."""
+        """
+        Crea el proveedor de IA principal según configuración.
+
+        Orden de prioridad:
+        1. OpenRouter (default) — una API key para todos los modelos
+        2. OpenAI directo — si se configura explícitamente
+        3. MockAIProvider — fallback para tests o desarrollo offline
+
+        Para agregar un proveedor directo (Anthropic, Gemini, etc.):
+        1. Creá el provider en infrastructure/ai/
+        2. Agregá un elif acá
+        3. Listo — OCP respetado ✅
+        """
         provider = settings.AI_PROVIDER
 
+        # ── OpenRouter (PRIMARIO) ──
+        if provider == "openrouter":
+            api_key = settings.OPENROUTER_API_KEY or settings.OPENAI_API_KEY
+            if api_key:
+                try:
+                    return OpenRouterProvider(
+                        api_key=api_key,
+                        model=settings.OPENROUTER_MODEL,
+                        temperature=settings.OPENROUTER_TEMPERATURE,
+                        max_tokens=settings.OPENROUTER_MAX_TOKENS,
+                        extra_headers={
+                            "HTTP-Referer": settings.OPENROUTER_REFERER,
+                            "X-Title": settings.OPENROUTER_TITLE,
+                        },
+                    )
+                except Exception as e:
+                    logger.warning(f"⚠️ OpenRouter no disponible: {e}. Usando fallback.")
+                    return MockAIProvider()
+
+            logger.warning("⚠️ OPENROUTER_API_KEY no configurada. Usando fallback.")
+            return MockAIProvider()
+
+        # ── OpenAI Directo ──
         if provider == "openai":
             try:
-                return OpenAIProvider(
+                return OpenAICompatibleProvider(
                     api_key=settings.OPENAI_API_KEY,
                     model=settings.OPENAI_MODEL,
                     base_url=settings.OPENAI_BASE_URL,
                     temperature=settings.OPENAI_TEMPERATURE,
                     max_tokens=settings.OPENAI_MAX_TOKENS,
+                    provider_name="openai-direct",
                 )
             except Exception as e:
                 logger.warning(f"⚠️ OpenAI no disponible: {e}. Usando fallback.")
                 return MockAIProvider()
 
-        logger.info(f"Proveedor {provider} no implementado, usando fallback")
+        logger.info(f"Proveedor '{provider}' no implementado, usando fallback")
         return MockAIProvider()
 
     def _init_use_cases(self):

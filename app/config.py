@@ -33,16 +33,66 @@ class Settings:
     SUBTITLES_DIR: Path = ASSETS_DIR / "subtitles"
     OUTPUT_DIR: Path = ASSETS_DIR / "output"
     
-    # API Keys (desde variables de entorno)
+    # ═══════════════════════════════════════════════
+    # API Keys
+    # ═══════════════════════════════════════════════
+
+    # ── OpenRouter (PROVIDER PRIMARIO) ──
+    # Usá OpenRouter como proxy para acceder a múltiples modelos
+    # con UNA sola API key. Registrate en: https://openrouter.ai/keys
+    OPENROUTER_API_KEY: Optional[str] = field(
+        default_factory=lambda: os.getenv("OPENROUTER_API_KEY")
+    )
+    OPENROUTER_MODEL: str = field(
+        default_factory=lambda: os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
+    )
+    OPENROUTER_BASE_URL: str = field(
+        default_factory=lambda: os.getenv(
+            "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
+        )
+    )
+    OPENROUTER_TEMPERATURE: float = 0.8
+    OPENROUTER_MAX_TOKENS: int = 2000
+    OPENROUTER_REFERER: str = field(
+        default_factory=lambda: os.getenv(
+            "OPENROUTER_REFERER", "https://github.com/ai-shorts-system"
+        )
+    )
+    OPENROUTER_TITLE: str = field(
+        default_factory=lambda: os.getenv("OPENROUTER_TITLE", "AI Shorts System")
+    )
+
+    # ── OpenAI Directo (FALLBACK / provider directo) ──
+    # Solo necesario si NO usás OpenRouter.
     OPENAI_API_KEY: Optional[str] = field(
         default_factory=lambda: os.getenv("OPENAI_API_KEY")
     )
+    OPENAI_MODEL: str = field(
+        default_factory=lambda: os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    )
+    OPENAI_BASE_URL: Optional[str] = field(
+        default_factory=lambda: os.getenv("OPENAI_BASE_URL")
+    )
+    OPENAI_TEMPERATURE: float = 0.8
+    OPENAI_MAX_TOKENS: int = 2000
+
+    # ── Anthropic Directo (provider directo opcional) ──
     ANTHROPIC_API_KEY: Optional[str] = field(
         default_factory=lambda: os.getenv("ANTHROPIC_API_KEY")
     )
+    ANTHROPIC_MODEL: str = "claude-haiku-4-20250514"
+    ANTHROPIC_TEMPERATURE: float = 0.8
+    ANTHROPIC_MAX_TOKENS: int = 2000
+
+    # ── Gemini Directo (provider directo opcional) ──
     GEMINI_API_KEY: Optional[str] = field(
         default_factory=lambda: os.getenv("GEMINI_API_KEY")
     )
+    GEMINI_MODEL: str = "gemini-2.0-flash-lite-001"
+    GEMINI_TEMPERATURE: float = 0.8
+    GEMINI_MAX_TOKENS: int = 2000
+
+    # ── Otras APIs ──
     ELEVENLABS_API_KEY: Optional[str] = field(
         default_factory=lambda: os.getenv("ELEVENLABS_API_KEY")
     )
@@ -55,31 +105,15 @@ class Settings:
     NEWS_API_KEY: Optional[str] = field(
         default_factory=lambda: os.getenv("NEWS_API_KEY")
     )
-    
-    # Proveedor de IA por defecto
+
+    # ═══════════════════════════════════════════════
+    # Proveedor activo
+    # ═══════════════════════════════════════════════
+    # Determina qué proveedor usa el Composition Root.
+    # Valores: "openrouter" (default), "openai", "anthropic", "gemini", "mock"
     AI_PROVIDER: str = field(
-        default_factory=lambda: os.getenv("AI_PROVIDER", "openai")
+        default_factory=lambda: os.getenv("AI_PROVIDER", "openrouter")
     )
-    
-    # Configuración de OpenAI (también compatible con OpenRouter)
-    OPENAI_MODEL: str = field(
-        default_factory=lambda: os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-    )
-    OPENAI_BASE_URL: Optional[str] = field(
-        default_factory=lambda: os.getenv("OPENAI_BASE_URL")
-    )
-    OPENAI_TEMPERATURE: float = 0.8
-    OPENAI_MAX_TOKENS: int = 2000
-    
-    # Configuración de Anthropic (Claude)
-    ANTHROPIC_MODEL: str = "claude-haiku-4-20250514"  # Haiku es el más barato
-    ANTHROPIC_TEMPERATURE: float = 0.8
-    ANTHROPIC_MAX_TOKENS: int = 2000
-    
-    # Configuración de Gemini
-    GEMINI_MODEL: str = "gemini-2.0-flash-lite-001"  # El más barato y rápido
-    GEMINI_TEMPERATURE: float = 0.8
-    GEMINI_MAX_TOKENS: int = 2000
     
     # Configuración de TTS
     TTS_PROVIDER: str = "elevenlabs"  # "elevenlabs" o "azure"
