@@ -28,6 +28,25 @@ from application.use_cases.generate_content import GenerateContentUseCase
 from application.use_cases.evaluate_content import EvaluateContentUseCase
 from application.use_cases.manage_trends import ManageTrendsUseCase
 
+# ── Research Module ──
+from research.infrastructure.persistence.sqlite_repository import SQLiteResearchRepository
+from research.infrastructure.persistence.scheduler_config import SchedulerConfig
+from research.infrastructure.sources.google_news_rss import GoogleNewsRSSSource
+from research.infrastructure.sources.mock_source import MockResearchSource
+from research.application.source_registry import SourceRegistry
+from research.domain.services.duplicate_detector import (
+    CompositeDuplicateDetector,
+    UrlNormalizerStrategy,
+    TitleNormalizerStrategy,
+)
+from research.domain.services.research_scorer import ResearchScorer
+from research.application.use_cases.auto_discover import AutoDiscoverTopicsUseCase
+from research.application.use_cases.register_manual import RegisterManualInputUseCase
+from research.application.use_cases.approve_topic import ApproveTopicUseCase
+from research.application.use_cases.reject_topic import RejectTopicUseCase
+from research.application.use_cases.list_topics import ListTopicsUseCase
+from research.application.scheduler import ResearchScheduler
+
 logger = logging.getLogger(__name__)
 
 
@@ -68,10 +87,62 @@ class Container:
         # ── Publisher ──
         self.publisher = MockPublisher(platform_name="youtube")
 
+        # ── Research ──
+        self._init_research()
+
         # ── Use Cases ──
         self._init_use_cases()
 
         logger.info("✅ Container: todas las dependencias inicializadas")
+
+    def _init_research(self):
+        """Inicializa módulo Research (descubrimiento + scheduler)."""
+        # ── Persistencia ──
+        db_path = str(settings.RESEARCH_DB_PATH)
+        self.research_repository = SQLiteResearchRepository(db_path=db_path)
+        self.scheduler_config = SchedulerConfig(db_path=db_path)
+
+        # ── Source Registry ──
+        self.research_source_registry = SourceRegistry()
+        self.research_source_registry.register(GoogleNewsRSSSource(locale="es-419"))
+        self.research_source_registry.register(MockResearchSource())
+
+        # ── Domain Services ──
+        self.research_duplicate_detector = CompositeDuplicateDetector([
+            UrlNormalizerStrategy(),
+            TitleNormalizerStrategy(),
+        ])
+        self.research_scorer = ResearchScorer()
+
+        # ── Use Cases ──
+        self.register_manual_input = RegisterManualInputUseCase(
+            repository=self.research_repository,
+            duplicate_detector=self.research_duplicate_detector,
+        )
+        self.auto_discover_topics = AutoDiscoverTopicsUseCase(
+            repository=self.research_repository,
+            source_registry=self.research_source_registry,
+            duplicate_detector=self.research_duplicate_detector,
+            scorer=self.research_scorer,
+        )
+        self.approve_topic = ApproveTopicUseCase(
+            repository=self.research_repository,
+        )
+        self.reject_topic = RejectTopicUseCase(
+            repository=self.research_repository,
+        )
+        self.list_topics = ListTopicsUseCase(
+            repository=self.research_repository,
+        )
+
+        # ── Scheduler ──
+        self.research_scheduler = ResearchScheduler(
+            auto_discover_use_case=self.auto_discover_topics,
+            config=self.scheduler_config,
+        )
+
+        logger.info("📰 Research module initialized (scheduler: %s)",
+                     "ON" if self.scheduler_config.is_enabled() else "OFF")
 
     def _init_ai_providers(self):
         """Inicializa proveedores de IA."""

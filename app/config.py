@@ -145,6 +145,24 @@ class Settings:
     TIMEOUT_SECONDS: int = 300
     ENABLE_CACHE: bool = True
     
+    # ═══════════════════════════════════════════════
+    # Research Module
+    # ═══════════════════════════════════════════════
+    RESEARCH_DB_PATH: Path = DATA_DIR / "research.db"
+
+    # Scheduler: descubrimiento automático de noticias
+    RESEARCH_SCHEDULER_ENABLED: bool = field(
+        default_factory=lambda: os.getenv("RESEARCH_SCHEDULER_ENABLED", "false").lower() == "true"
+    )
+    RESEARCH_SCHEDULER_INTERVAL: int = int(
+        os.getenv("RESEARCH_SCHEDULER_INTERVAL", "60")  # minutos
+    )
+    RESEARCH_SCHEDULER_QUERIES: list = field(
+        default_factory=lambda: [
+            q.strip() for q in os.getenv("RESEARCH_SCHEDULER_QUERIES", "tecnología,inteligencia artificial,ciencia").split(",") if q.strip()
+        ]
+    )
+    
     # Nichos disponibles
     AVAILABLE_NICHES: list = field(default_factory=lambda: [
         "tecnología",
