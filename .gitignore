@@ -2,6 +2,10 @@
 node_modules/
 vendor/
 
+# Frontend build cache
+.next/
+.atl/
+
 # Python
 __pycache__/
 *.py[cod]
