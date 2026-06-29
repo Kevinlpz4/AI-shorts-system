@@ -6,15 +6,34 @@ from uuid import uuid4
 from domain.value_objects.duration import Duration
 
 
+def _utcnow_iso() -> str:
+    return datetime.utcnow().isoformat()
+
+
 @dataclass
 class Script:
     """
     Entidad: un guion para short.
     
     Contiene hook, body, cta + metadatos.
+    
+    Attributes:
+        id: Identificador único del guion.
+        idea_id: ID de la idea de contenido asociada (legacy).
+        topic_id: FK al ResearchTopic (research_topics.id).
+        topic: Título del tema (descriptivo).
+        hook: Gancho inicial del guion.
+        body: Cuerpo del guion.
+        cta: Call-to-action final.
+        duration: Duración objetivo en segundos.
+        tone: Tono del guion (educational, humorous, etc.).
+        format: Formato (story, list, fact, etc.).
+        created_at: Fecha de creación en ISO format.
+        updated_at: Fecha de última modificación en ISO format.
     """
     id: str = field(default_factory=lambda: str(uuid4()))
     idea_id: str = ""
+    topic_id: str = ""
     topic: str = ""
     hook: str = ""
     body: str = ""
@@ -22,7 +41,8 @@ class Script:
     duration: Duration = field(default_factory=lambda: Duration(45))
     tone: str = "educational"
     format: str = "story"
-    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    created_at: str = field(default_factory=_utcnow_iso)
+    updated_at: str = field(default_factory=_utcnow_iso)
 
     @property
     def full_text(self) -> str:
@@ -62,6 +82,7 @@ class Script:
         return {
             "id": self.id,
             "idea_id": self.idea_id,
+            "topic_id": self.topic_id,
             "topic": self.topic,
             "hook": self.hook,
             "body": self.body,
@@ -70,4 +91,6 @@ class Script:
             "word_count": self.word_count,
             "tone": self.tone,
             "format": self.format,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
         }

@@ -163,6 +163,21 @@ class Settings:
         ]
     )
     
+    # ═══════════════════════════════════════════════
+    # API Server
+    # ═══════════════════════════════════════════════
+    API_HOST: str = field(
+        default_factory=lambda: os.getenv("API_HOST", "127.0.0.1")
+    )
+    API_PORT: int = int(os.getenv("API_PORT", "8000"))
+    API_CORS_ORIGINS: list = field(
+        default_factory=lambda: [
+            o.strip()
+            for o in os.getenv("API_CORS_ORIGINS", "http://localhost:3000,http://localhost:3001").split(",")
+            if o.strip()
+        ]
+    )
+
     # Nichos disponibles
     AVAILABLE_NICHES: list = field(default_factory=lambda: [
         "tecnología",

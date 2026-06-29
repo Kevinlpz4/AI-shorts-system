@@ -9,6 +9,7 @@ Comandos disponibles:
   evaluate  — evaluar contenido existente
   test      — tests de integración
   research  — módulo de investigación (descubrimiento, aprobación, scheduler)
+  api/serve — iniciar servidor FastAPI REST
 """
 import asyncio
 import argparse
@@ -156,6 +157,52 @@ def build_parser() -> argparse.ArgumentParser:
         help="Queries separadas por coma (ej: 'IA,tecnología,ciencia')",
     )
 
+    # ── api / serve ─────────────────────────────────────
+    api_parser = subparsers.add_parser(
+        "api", help="Iniciar servidor FastAPI REST"
+    )
+    api_parser.add_argument(
+        "--host", type=str, default=None,
+        help="Host del servidor (default: configurado en API_HOST)",
+    )
+    api_parser.add_argument(
+        "--port", "-p", type=int, default=None,
+        help="Puerto del servidor (default: configurado en API_PORT)",
+    )
+    api_parser.add_argument(
+        "--reload", action="store_true",
+        help="Activar hot-reload (solo desarrollo)",
+    )
+
+    # serve es un alias de api
+    serve_parser = subparsers.add_parser(
+        "serve", help="Iniciar servidor FastAPI REST (alias de api)"
+    )
+    serve_parser.add_argument(
+        "--host", type=str, default=None,
+        help="Host del servidor (default: configurado en API_HOST)",
+    )
+    serve_parser.add_argument(
+        "--port", "-p", type=int, default=None,
+        help="Puerto del servidor (default: configurado en API_PORT)",
+    )
+    serve_parser.add_argument(
+        "--reload", action="store_true",
+        help="Activar hot-reload (solo desarrollo)",
+    )
+    api_parser.add_argument(
+        "--host", type=str, default=None,
+        help="Host del servidor (default: configurado en API_HOST)",
+    )
+    api_parser.add_argument(
+        "--port", "-p", type=int, default=None,
+        help="Puerto del servidor (default: configurado en API_PORT)",
+    )
+    api_parser.add_argument(
+        "--reload", action="store_true",
+        help="Activar hot-reload (solo desarrollo)",
+    )
+
     return parser
 
 
@@ -212,6 +259,10 @@ async def main():
         # ── Research commands ─────────────────────────
         elif args.command == "research":
             await handle_research(cli, args)
+
+        # ── API Server ──────────────────────────────────
+        elif args.command in ("api", "serve"):
+            await run_api(args)
 
     except KeyboardInterrupt:
         logger.info("\n⏹ Interrumpido por el usuario")
@@ -381,6 +432,33 @@ async def run_tests(container: Container):
 
     if failed > 0:
         sys.exit(1)
+
+
+async def run_api(args: argparse.Namespace):
+    """Inicia el servidor FastAPI."""
+    import uvicorn
+
+    from presentation.api.container import ApiContainer
+    from presentation.api.main import create_app
+
+    host = args.host or settings.API_HOST
+    port = args.port or settings.API_PORT
+
+    logger.info("🌐 Iniciando API server en %s:%s", host, port)
+    logger.info("   Documentación: http://%s:%s/api/docs", host, port)
+
+    container = ApiContainer()
+    app = create_app(container)
+
+    config = uvicorn.Config(
+        app=app,
+        host=host,
+        port=port,
+        reload=args.reload,
+        log_level="info",
+    )
+    server = uvicorn.Server(config)
+    await server.serve()
 
 
 if __name__ == "__main__":

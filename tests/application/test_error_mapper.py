@@ -8,6 +8,7 @@ from domain.exceptions.ai import QuotaExceededError, ProviderUnavailableError, R
 from domain.exceptions.content import IdeaGenerationError, ScriptGenerationError
 from domain.exceptions.media import TTSError, VideoRenderError
 from domain.exceptions.publishing import PublishError, PlatformNotSupportedError
+from domain.exceptions.script import ScriptNotFoundError, ScriptAlreadyExistsError
 from domain.exceptions.trends import TrendNotFoundError
 
 
@@ -110,3 +111,41 @@ class TestErrorMapper:
         assert ErrorMapper.should_fallback(ProviderUnavailableError("")) is True
         assert ErrorMapper.should_fallback(TTSError("")) is True
         assert ErrorMapper.should_fallback(ScriptGenerationError("")) is False
+
+    # ── Script Domain Errors ──────────────────────────
+
+    def test_map_script_not_found(self):
+        err = ScriptNotFoundError(topic_id="abc")
+        level, msg, status = ErrorMapper.map(err)
+        assert level == logging.INFO
+        assert status == 404
+        assert "guion" in msg.lower()
+
+    def test_map_script_already_exists(self):
+        err = ScriptAlreadyExistsError(topic_id="abc")
+        level, msg, status = ErrorMapper.map(err)
+        assert level == logging.WARNING
+        assert status == 409
+        assert "guion" in msg.lower()
+
+    def test_to_response_script_not_found(self):
+        err = ScriptNotFoundError(topic_id="abc")
+        resp = ErrorMapper.to_response(err)
+        assert resp["error"] == "SCRIPT_NOT_FOUND"
+        assert resp["status_code"] == 404
+
+    def test_to_response_script_already_exists(self):
+        err = ScriptAlreadyExistsError(topic_id="abc")
+        resp = ErrorMapper.to_response(err)
+        assert resp["error"] == "SCRIPT_ALREADY_EXISTS"
+        assert resp["status_code"] == 409
+
+    def test_should_retry_script_errors(self):
+        """Script errors are not retryable."""
+        assert ErrorMapper.should_retry(ScriptNotFoundError(topic_id="")) is False
+        assert ErrorMapper.should_retry(ScriptAlreadyExistsError(topic_id="")) is False
+
+    def test_should_fallback_script_errors(self):
+        """Script errors should not fallback."""
+        assert ErrorMapper.should_fallback(ScriptNotFoundError(topic_id="")) is False
+        assert ErrorMapper.should_fallback(ScriptAlreadyExistsError(topic_id="")) is False

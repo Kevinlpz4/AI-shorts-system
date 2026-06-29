@@ -13,6 +13,7 @@ from domain.exceptions.content import (
     IdeaGenerationError, ScriptGenerationError, ScriptValidationError,
     ContentEvaluationError,
 )
+from domain.exceptions.script import ScriptNotFoundError, ScriptAlreadyExistsError
 from domain.exceptions.trends import TrendNotFoundError
 from domain.exceptions.media import TTSError, VideoRenderError
 from domain.exceptions.publishing import PublishError, PlatformNotSupportedError
@@ -34,6 +35,8 @@ class ErrorMapper:
         IdeaGenerationError:      (logging.ERROR, "No se pudo generar la idea"),
         ScriptGenerationError:    (logging.ERROR, "No se pudo generar el guion"),
         ScriptValidationError:    (logging.ERROR, "El guion no pasa control de calidad"),
+        ScriptNotFoundError:      (logging.INFO, "No se encontró el guion solicitado"),
+        ScriptAlreadyExistsError:(logging.WARNING, "Ya existe un guion para este topic"),
         ContentEvaluationError:   (logging.ERROR, "Error evaluando contenido"),
         # Trend Errors
         TrendNotFoundError:       (logging.INFO, "No hay tendencias para este nicho"),

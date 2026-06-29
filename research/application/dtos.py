@@ -78,10 +78,16 @@ class ListTopicsQuery:
 
     Atributos:
         status: Filtrar por estado (None = todos)
+        source: Filtrar por nombre de fuente (None = todas)
+        q: Búsqueda por texto en título (None = sin filtro)
+        min_score: Score mínimo (None = sin filtro)
         limit: Máximo de resultados
         offset: Paginación
     """
     status: Optional[str] = None  # pending_review, approved, rejected, found
+    source: Optional[str] = None
+    q: Optional[str] = None
+    min_score: Optional[float] = None
     limit: int = 20
     offset: int = 0
 

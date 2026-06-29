@@ -269,4 +269,20 @@ class Container:
                     logger.warning(f"⚠️ {primary.name} falló (json): {e}. Usando fallback.")
                 return await fallback.generate_json(prompt, **kwargs)
 
+            async def generate_script(self, idea, duration=45, tone="educational"):
+                """Genera script: intenta primario → fallback."""
+                if hasattr(primary, 'generate_script'):
+                    try:
+                        if primary.available:
+                            return await primary.generate_script(
+                                idea=idea, duration=duration, tone=tone
+                            )
+                    except Exception as e:
+                        logger.warning(
+                            f"⚠️ {primary.name} falló (script): {e}. Usando fallback."
+                        )
+                return await fallback.generate_script(
+                    idea=idea, duration=duration, tone=tone
+                )
+
         return FallbackAIWrapper()
