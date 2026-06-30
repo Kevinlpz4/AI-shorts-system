@@ -28,6 +28,7 @@ from infrastructure.persistence.sqlite_script_repository import (
 from application.use_cases.script.generate_script import GenerateScriptUseCase
 from application.use_cases.script.get_script import GetScriptUseCase
 from application.use_cases.script.regenerate_script import RegenerateScriptUseCase
+from research.application.use_cases.approve_topic import ApproveTopicUseCase
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ class ApiContainer(Container):
     def __init__(self):
         super().__init__()
         self._init_script_module()
+        self._upgrade_approve_topic()
         logger.info("🌐 ApiContainer: dependencias de API inicializadas")
 
     def _init_script_module(self):
@@ -66,4 +68,13 @@ class ApiContainer(Container):
         self.regenerate_script_use_case = RegenerateScriptUseCase(
             script_repo=self.script_repo,
             generate_uc=self.generate_script_use_case,
+        )
+
+    def _upgrade_approve_topic(self):
+        """Reemplaza approve_topic con la versión que soporta auto-generate."""
+        self.approve_topic = ApproveTopicUseCase(
+            repository=self.research_repository,
+            generate_script_uc=self.generate_script_use_case,
+            script_repo=self.script_repo,
+            scheduler_config=self.scheduler_config,
         )

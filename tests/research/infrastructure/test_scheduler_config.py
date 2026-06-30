@@ -101,3 +101,36 @@ class TestSchedulerConfig:
         config2 = SchedulerConfig(db_path=config._db_path)
         assert config2.get_interval() == 15
         assert config2.is_enabled() is True
+
+    # ── Auto Generate ────────────────────────────────
+
+    def test_auto_generate_enabled_default_false(self, config: SchedulerConfig):
+        """is_auto_generate_enabled debe ser False por defecto."""
+        assert config.is_auto_generate_enabled() is False
+
+    def test_set_auto_generate_true(self, config: SchedulerConfig):
+        """set_auto_generate(True) debe persistir."""
+        config.set_auto_generate(True)
+        assert config.is_auto_generate_enabled() is True
+
+    def test_set_auto_generate_false(self, config: SchedulerConfig):
+        """Toggle True → False debe quedar en False."""
+        config.set_auto_generate(True)
+        config.set_auto_generate(False)
+        assert config.is_auto_generate_enabled() is False
+
+    def test_auto_generate_persistence(self, config: SchedulerConfig):
+        """Auto-generate debe persistir entre instancias."""
+        config.set_auto_generate(True)
+
+        config2 = SchedulerConfig(db_path=config._db_path)
+        assert config2.is_auto_generate_enabled() is True
+
+    def test_auto_generate_multiple_toggles(self, config: SchedulerConfig):
+        """Toggle múltiples veces debe mantener el último valor."""
+        config.set_auto_generate(True)
+        config.set_auto_generate(True)
+        config.set_auto_generate(True)
+        assert config.is_auto_generate_enabled() is True
+        config.set_auto_generate(False)
+        assert config.is_auto_generate_enabled() is False

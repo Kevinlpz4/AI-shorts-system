@@ -109,6 +109,14 @@ class SchedulerConfig:
         """Registra el timestamp del último ciclo."""
         self._set_config("last_run", timestamp)
 
+    def is_auto_generate_enabled(self) -> bool:
+        """Si el auto-generate de scripts está habilitado."""
+        return self._get_config("auto_generate_script", "false").lower() == "true"
+
+    def set_auto_generate(self, enabled: bool) -> None:
+        """Habilita/deshabilita el auto-generate de scripts."""
+        self._set_config("auto_generate_script", "true" if enabled else "false")
+
     def get_status(self) -> dict:
         """Retorna estado completo del scheduler."""
         return {

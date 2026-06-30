@@ -15,6 +15,8 @@ from presentation.api.error_handlers import add_error_handlers
 from presentation.api.routes.topics import router as topics_router
 from presentation.api.routes.scripts import router as scripts_router
 from presentation.api.routes.discover import router as discover_router
+from presentation.api.routes.scheduler import router as scheduler_router
+from presentation.api.routes.studio import router as studio_router
 
 logger = logging.getLogger(__name__)
 
@@ -56,9 +58,11 @@ def create_app(container: ApiContainer) -> FastAPI:
     add_error_handlers(app)
 
     # ── Routers ──
-    app.include_router(topics_router)
-    app.include_router(scripts_router)
     app.include_router(discover_router)
+    app.include_router(scheduler_router)
+    app.include_router(scripts_router)
+    app.include_router(studio_router)
+    app.include_router(topics_router)
 
     # ── Root endpoint ──
     @app.get("/")

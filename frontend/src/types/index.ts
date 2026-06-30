@@ -89,6 +89,46 @@ export interface BatchDiscoverResult {
 
 // ── Script types ──
 
+// ═══════════════════════════════════════════════════
+// Scheduler + Studio types
+// ═══════════════════════════════════════════════════
+
+/** Estado completo del scheduler */
+export interface SchedulerStatus {
+  enabled: boolean;
+  interval_minutes: number;
+  queries: string[];
+  last_run: string | null;
+  is_running: boolean;
+  running_query: string | null;
+}
+
+/** Configuración del scheduler */
+export interface SchedulerConfig {
+  interval_minutes: number;
+  queries: string[];
+  auto_generate_script: boolean;
+}
+
+/** Recomendaciones del sistema para generar un script */
+export interface ScriptRecommendations {
+  tone: string;
+  duration: number;
+  niche: string;
+  reasoning: {
+    tone: string;
+    duration: string;
+    niche: string;
+  };
+}
+
+/** Configuración del Studio (config panel en UI) */
+export interface StudioConfig {
+  duration: number;
+  tone: string;
+  niche: string;
+}
+
 /** DTO plano de un Script para la capa de presentación */
 export interface ScriptData {
   /** ID único del script */

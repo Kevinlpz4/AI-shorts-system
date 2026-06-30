@@ -175,18 +175,23 @@ async def get_topic(
 async def approve_topic(
     topic_id: UUID,
     request: Request,
+    auto_generate: Optional[bool] = Query(None, description="Auto-generar script si está aprobado"),
 ):
     """
     POST /api/v1/topics/{topic_id}/approve
 
     Aprueba un topic para generación de contenido.
+
+    Query params:
+      - auto_generate: bool (opcional) — forzar generación de script.
+        Si se omite, usa la configuración global del scheduler.
     """
     container = await _get_container(request)
     use_case: ApproveTopicUseCase = container.approve_topic
     dto = ReviewDecisionDTO(topic_id=topic_id)
 
     try:
-        result = await use_case.execute(dto)
+        result = await use_case.execute(dto, auto_generate=auto_generate)
     except DomainError as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail)
 

@@ -102,12 +102,15 @@ class ResearchScheduler:
             self._task = None
         logger.info("⏹ Scheduler detenido")
 
-    async def run_once(self) -> None:
+    async def run_once(self) -> dict:
         """
         Ejecuta UN ciclo de descubrimiento ahora (sin esperar intervalo).
         Útil para CLI: `shorts research schedule run-now`
+
+        Returns:
+            Dict con discovered, duplicates, errors del ciclo ejecutado.
         """
-        await self._execute_cycle()
+        return await self._execute_cycle()
 
     # ── Configuración ─────────────────────────────────
 
@@ -145,8 +148,15 @@ class ResearchScheduler:
             logger.info("⏹ Scheduler loop cancelado")
             raise
 
-    async def _execute_cycle(self) -> None:
-        """Ejecuta UN ciclo: descubre para todas las queries configuradas."""
+    async def _execute_cycle(self) -> dict:
+        """
+        Ejecuta UN ciclo: descubre para todas las queries configuradas.
+
+        Returns:
+            Dict con discovered_count, duplicates_count, errors del ciclo.
+            errors es lista de dicts con detalle, discovered/duplicates son
+            conteos (los topics completos son demasiado pesados para API).
+        """
         queries = self._config.get_queries()
         logger.info(
             "🔄 Scheduler ejecutando ciclo con %d queries",
@@ -154,7 +164,8 @@ class ResearchScheduler:
         )
 
         total_discovered = 0
-        total_errors = 0
+        total_duplicates = 0
+        all_errors: list[dict] = []
 
         for query in queries:
             self._running_query = query
@@ -163,8 +174,9 @@ class ResearchScheduler:
                     AutoDiscoverDTO(query=query, limit=5)
                 )
                 total_discovered += len(result.discovered)
+                total_duplicates += len(result.duplicates)
                 if result.errors:
-                    total_errors += len(result.errors)
+                    all_errors.extend(result.errors)
                     for err in result.errors:
                         logger.warning(
                             "⚠️ [Scheduler] Error en fuente '%s': %s",
@@ -183,7 +195,9 @@ class ResearchScheduler:
                     query,
                     e,
                 )
-                total_errors += 1
+                all_errors.append(
+                    {"query": query, "error": str(e)}
+                )
 
         self._running_query = None
         self._config.set_last_run(
@@ -191,7 +205,14 @@ class ResearchScheduler:
         )
 
         logger.info(
-            "✅ Ciclo completado: %d descubiertos, %d errores",
+            "✅ Ciclo completado: %d descubiertos, %d duplicados, %d errores",
             total_discovered,
-            total_errors,
+            total_duplicates,
+            len(all_errors),
         )
+
+        return {
+            "discovered_count": total_discovered,
+            "duplicates_count": total_duplicates,
+            "errors": all_errors,
+        }

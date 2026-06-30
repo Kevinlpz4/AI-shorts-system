@@ -226,6 +226,25 @@ class SQLiteResearchRepository:
             """, (limit, offset))
             return [self._row_to_topic(r) for r in rows.fetchall()]
 
+    async def find_approved_without_script(self) -> list[ResearchTopic]:
+        """Approved topics that have no associated script."""
+        with self._get_connection() as conn:
+            rows = conn.execute("""
+                SELECT rt.* FROM research_topics rt
+                WHERE rt.status = 'approved'
+                AND NOT EXISTS (
+                    SELECT 1 FROM scripts s WHERE s.topic_id = rt.id
+                )
+                ORDER BY (
+                    rt.score_relevance * 0.35
+                    + rt.score_popularity * 0.25
+                    + rt.score_recency * 0.25
+                    + rt.score_reliability * 0.15
+                ) DESC
+                LIMIT 50
+            """).fetchall()
+            return [self._row_to_topic(r) for r in rows]
+
     async def count_by_status(self, status: ResearchStatus) -> int:
         """Cuenta topics en un estado dado."""
         with self._get_connection() as conn:

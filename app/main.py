@@ -190,18 +190,6 @@ def build_parser() -> argparse.ArgumentParser:
         "--reload", action="store_true",
         help="Activar hot-reload (solo desarrollo)",
     )
-    api_parser.add_argument(
-        "--host", type=str, default=None,
-        help="Host del servidor (default: configurado en API_HOST)",
-    )
-    api_parser.add_argument(
-        "--port", "-p", type=int, default=None,
-        help="Puerto del servidor (default: configurado en API_PORT)",
-    )
-    api_parser.add_argument(
-        "--reload", action="store_true",
-        help="Activar hot-reload (solo desarrollo)",
-    )
 
     return parser
 
