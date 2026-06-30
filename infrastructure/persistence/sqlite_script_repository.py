@@ -14,7 +14,7 @@ Sigue el mismo patrón que SQLiteResearchRepository.
 
 import sqlite3
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Sequence
 
 from domain.entities.script import Script
 from domain.value_objects.duration import Duration
@@ -99,6 +99,26 @@ class SQLiteScriptRepository:
                 (topic_id,)
             ).fetchone()
             return self._row_to_script(row) if row else None
+
+    async def find_all(
+        self, limit: int = 50, offset: int = 0
+    ) -> Sequence[Script]:
+        """Lista todos los scripts ordenados por fecha descendente."""
+        with self._get_connection() as conn:
+            rows = conn.execute("""
+                SELECT * FROM scripts
+                ORDER BY created_at DESC
+                LIMIT ? OFFSET ?
+            """, (limit, offset)).fetchall()
+            return [self._row_to_script(r) for r in rows]
+
+    async def count_all(self) -> int:
+        """Cuenta el total de scripts."""
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) as cnt FROM scripts"
+            ).fetchone()
+            return row["cnt"] if row else 0
 
     # ── Eliminación ──────────────────────────────────
 

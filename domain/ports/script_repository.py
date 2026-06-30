@@ -11,7 +11,7 @@ El dominio nunca conoce SQLite, ni tablas, ni queries.
 Solo conoce este puerto.
 """
 
-from typing import Optional, Protocol
+from typing import Optional, Protocol, Sequence
 
 from domain.entities.script import Script
 
@@ -42,6 +42,16 @@ class ScriptRepository(Protocol):
         Returns:
             Script si existe, None si no.
         """
+        ...
+
+    async def find_all(
+        self, limit: int = 50, offset: int = 0
+    ) -> Sequence[Script]:
+        """Lista todos los scripts, ordenados por fecha descendente."""
+        ...
+
+    async def count_all(self) -> int:
+        """Cuenta el total de scripts generados."""
         ...
 
     async def delete_by_topic_id(self, topic_id: str) -> None:

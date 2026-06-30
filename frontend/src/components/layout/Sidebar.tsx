@@ -9,6 +9,7 @@ import {
   FileText,
   BarChart3,
   Film,
+  ScrollText,
   Settings,
   PlusCircle,
   Terminal,
@@ -31,6 +32,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/topics", label: "Topics", icon: <FileText size={18} /> },
   { href: "/analytics", label: "Analytics", icon: <BarChart3 size={18} /> },
   { href: "/studio", label: "Studio", icon: <Film size={18} /> },
+  { href: "/scripts", label: "Scripts", icon: <ScrollText size={18} /> },
   { href: "/settings", label: "Settings", icon: <Settings size={18} /> },
   { href: "/terminal", label: "Terminal", icon: <Terminal size={18} /> },
 ];

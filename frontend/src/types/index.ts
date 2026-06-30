@@ -156,3 +156,13 @@ export interface ScriptData {
   /** Fecha de última actualización ISO */
   updatedAt: string;
 }
+
+/** Script enriquecido con datos del topic asociado */
+export interface ScriptWithTopic extends ScriptData {
+  /** Título del topic asociado */
+  topic_title: string;
+  /** Score total del topic */
+  topic_score: number;
+  /** Status del topic (approved, etc.) */
+  topic_status: string;
+}
