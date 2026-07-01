@@ -29,8 +29,8 @@ from application.use_cases.evaluate_content import EvaluateContentUseCase
 from application.use_cases.manage_trends import ManageTrendsUseCase
 
 # ── Research Module ──
-from research.infrastructure.persistence.sqlite_repository import SQLiteResearchRepository
-from research.infrastructure.persistence.scheduler_config import SchedulerConfig
+from research.infrastructure.persistence.postgres_repository import PostgresResearchRepository
+from research.infrastructure.persistence.postgres_scheduler_config import PostgresSchedulerConfig
 from research.infrastructure.sources.google_news_rss import GoogleNewsRSSSource
 from research.infrastructure.sources.mock_source import MockResearchSource
 from research.application.source_registry import SourceRegistry
@@ -97,10 +97,9 @@ class Container:
 
     def _init_research(self):
         """Inicializa módulo Research (descubrimiento + scheduler)."""
-        # ── Persistencia ──
-        db_path = str(settings.RESEARCH_DB_PATH)
-        self.research_repository = SQLiteResearchRepository(db_path=db_path)
-        self.scheduler_config = SchedulerConfig(db_path=db_path)
+        # ── Persistencia (PostgreSQL via SQLAlchemy) ──
+        self.research_repository = PostgresResearchRepository()
+        self.scheduler_config = PostgresSchedulerConfig()
 
         # ── Source Registry ──
         self.research_source_registry = SourceRegistry()

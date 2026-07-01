@@ -22,8 +22,8 @@ from app.config import settings
 from presentation.cli.container import Container
 
 # ── Script Module ──
-from infrastructure.persistence.sqlite_script_repository import (
-    SQLiteScriptRepository,
+from infrastructure.persistence.postgres_script_repository import (
+    PostgresScriptRepository,
 )
 from application.use_cases.script.generate_script import GenerateScriptUseCase
 from application.use_cases.script.get_script import GetScriptUseCase
@@ -49,9 +49,8 @@ class ApiContainer(Container):
 
     def _init_script_module(self):
         """Inicializa dependencias del módulo Script."""
-        # ── Repositorio de Scripts (misma DB que research) ──
-        db_path = str(settings.RESEARCH_DB_PATH)
-        self.script_repo = SQLiteScriptRepository(db_path=db_path)
+        # ── Repositorio de Scripts (PostgreSQL via SQLAlchemy) ──
+        self.script_repo = PostgresScriptRepository()
 
         # ── Fallback AI wrapper (ya incluye generate_script) ──
         ai = self._create_fallback_ai_wrapper()

@@ -146,6 +146,16 @@ class Settings:
     ENABLE_CACHE: bool = True
     
     # ═══════════════════════════════════════════════
+    # Database (PostgreSQL)
+    # ═══════════════════════════════════════════════
+    DATABASE_URL: str = field(
+        default_factory=lambda: os.getenv(
+            "DATABASE_URL",
+            "postgresql+psycopg2://kevin:1234@localhost:5432/system_shorts",
+        )
+    )
+
+    # ═══════════════════════════════════════════════
     # Research Module
     # ═══════════════════════════════════════════════
     RESEARCH_DB_PATH: Path = DATA_DIR / "research.db"

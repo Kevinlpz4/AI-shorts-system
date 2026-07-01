@@ -1,6 +1,9 @@
 """
-SchedulerConfig — Persistencia de configuración del scheduler en SQLite
-========================================================================
+SchedulerConfig — Persistencia de configuración del scheduler en SQLite (DEPRECATED)
+====================================================================================
+⚠️  DEPRECATED: Usar PostgresSchedulerConfig en su lugar.
+    Se mantiene para tests y referencia.
+
 Guarda y recupera la configuración del scheduler de descubrimiento automático.
 
 Usa una tabla key-value en la misma DB que el repositorio de research.

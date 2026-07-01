@@ -1,6 +1,9 @@
 """
-SQLiteScriptRepository — Implementación concreta de ScriptRepository
-======================================================================
+SQLiteScriptRepository — Implementación concreta de ScriptRepository (DEPRECATED)
+==================================================================================
+⚠️  DEPRECATED: Usar PostgresScriptRepository en su lugar.
+    Se mantiene para tests y referencia.
+
 Guarda Script entities en SQLite (misma DB que research_topics).
 
 Trade-offs:

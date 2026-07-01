@@ -1,6 +1,9 @@
 """
-SQLiteResearchRepository — Implementación concreta de ResearchRepository
-===========================================================================
+SQLiteResearchRepository — Implementación concreta de ResearchRepository (DEPRECATED)
+======================================================================================
+⚠️  DEPRECATED: Usar PostgresResearchRepository en su lugar.
+    Se mantiene para tests y referencia.
+
 Guarda ResearchTopics en SQLite.
 
 Trade-offs:
