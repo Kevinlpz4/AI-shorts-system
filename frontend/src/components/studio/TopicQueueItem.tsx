@@ -3,6 +3,7 @@
 import clsx from "clsx";
 import { TopicData } from "@/types";
 import { Clock, User, ExternalLink } from "lucide-react";
+import { timeAgo } from "@/lib/utils";
 
 /** Props for an individual topic card in the queue */
 interface TopicQueueItemProps {
@@ -25,14 +26,6 @@ export function TopicQueueItem({
   isSelected,
   onSelect,
 }: TopicQueueItemProps) {
-  const timeAgo = (dateStr: string): string => {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    if (hours < 1) return "Just now";
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    return `${days}d ago`;
-  };
 
   // Score color: green ≥80, yellow ≥60, red <60
   const scoreColor =
@@ -43,9 +36,9 @@ export function TopicQueueItem({
         : "text-cyber-red";
 
   const scoreBg =
-    topic.scoreTotal >= 80
+    topic.scoreTotal >= 8
       ? "bg-cyber-green/10 border-cyber-green/30"
-      : topic.scoreTotal >= 60
+      : topic.scoreTotal >= 6
         ? "bg-cyber-yellow/10 border-cyber-yellow/30"
         : "bg-cyber-red/10 border-cyber-red/30";
 

@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock
 from application.use_cases.generate_content import GenerateContentUseCase
 from application.use_cases.evaluate_content import EvaluateContentUseCase
 from application.use_cases.manage_trends import ManageTrendsUseCase
-from application.dto import GenerateContentRequest, EvaluateRequest, TrendRequest
-from application.dto.responses import ContentResult
+from application.dtos.requests import GenerateContentRequest, EvaluateRequest, TrendRequest
+from application.dtos.responses import ContentResult
 from domain.entities.content_idea import ContentIdea
 from domain.entities.script import Script
 from domain.entities.trend import Trend, TrendSource

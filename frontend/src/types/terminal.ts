@@ -10,15 +10,4 @@ export interface TerminalOutput {
   lines?: string[];
 }
 
-/** A registered terminal command */
-export interface TerminalCommand {
-  name: string;
-  description: string;
-  usage: string;
-}
 
-/** Command history entry */
-export interface CommandHistory {
-  command: string;
-  output: TerminalOutput[];
-}

@@ -235,12 +235,35 @@ class Settings:
             dir_path.mkdir(parents=True, exist_ok=True)
     
     def validate(self) -> bool:
-        """Valida que las configuraciones requeridas estén presentes."""
-        required = ["OPENAI_API_KEY"]
-        missing = [key for key in required if not getattr(self, key)]
+        """
+        Valida que las configuraciones requeridas estén presentes
+        según el proveedor de IA activo.
         
-        if missing:
-            raise ValueError(f"Faltan configuraciones requeridas: {missing}")
+        - "openrouter" → OPENROUTER_API_KEY
+        - "openai"     → OPENAI_API_KEY
+        - "anthropic"  → ANTHROPIC_API_KEY
+        - "gemini"     → GEMINI_API_KEY
+        - "mock"       → no requiere API key
+        """
+        provider_key_map = {
+            "openrouter": "OPENROUTER_API_KEY",
+            "openai": "OPENAI_API_KEY",
+            "anthropic": "ANTHROPIC_API_KEY",
+            "gemini": "GEMINI_API_KEY",
+            "mock": None,
+        }
+        
+        required_key = provider_key_map.get(self.AI_PROVIDER)
+        if required_key is None:
+            # mock provider o desconocido — no validamos API key
+            return True
+        
+        value = getattr(self, required_key, None)
+        if not value:
+            raise ValueError(
+                f"Falta configuración requerida: {required_key} "
+                f"(para provider activo: {self.AI_PROVIDER})"
+            )
         
         return True
 

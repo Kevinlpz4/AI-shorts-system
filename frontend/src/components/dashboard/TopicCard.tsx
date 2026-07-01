@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useRouter } from "next/navigation";
 import { ExternalLink, Clock, User } from "lucide-react";
+import { timeAgo } from "@/lib/utils";
 
 /** Props de la card que muestra un topic resumido */
 interface TopicCardProps {
@@ -27,15 +28,6 @@ export function TopicCard({ topic, onSelect }: TopicCardProps) {
     } else {
       router.push(`/topics/${topic.id}`);
     }
-  };
-
-  const timeAgo = (dateStr: string): string => {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    if (hours < 1) return "Just now";
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    return `${days}d ago`;
   };
 
   return (

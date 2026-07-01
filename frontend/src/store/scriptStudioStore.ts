@@ -10,6 +10,7 @@ import { create } from "zustand";
 import { TopicData, ScriptData, ScriptRecommendations, StudioConfig } from "@/types";
 import { TopicStatusValue } from "@/domain/value-objects/TopicStatus";
 import { SourceType } from "@/domain/value-objects/Source";
+import { getApiBase, mapScriptFromApi } from "@/lib/utils";
 
 // ── State shape ──
 
@@ -47,33 +48,7 @@ const DEFAULT_CONFIG: StudioConfig = {
 
 // ── Helpers ──
 
-/** Obtiene la base URL de la API desde env var, o vacío para modo mock */
-function getApiBase(): string {
-  return typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_URL
-    ? process.env.NEXT_PUBLIC_API_URL
-    : "";
-}
 
-/**
- * Mapea la respuesta JSON de la API de scripts → tipo ScriptData.
- * Convierte snake_case de la API a camelCase del frontend.
- */
-function mapScriptFromApi(data: Record<string, unknown>): ScriptData {
-  return {
-    id: data.id as string,
-    topicId: data.topic_id as string,
-    hook: data.hook as string,
-    body: data.body as string,
-    cta: data.cta as string,
-    duration: (data.duration as number) || 60,
-    tone: (data.tone as string) || "informative",
-    format: (data.format as string) || "youtube-shorts",
-    wordCount: (data.word_count as number) || 0,
-    isValid: (data.is_valid as boolean) ?? true,
-    createdAt: (data.created_at as string) || new Date().toISOString(),
-    updatedAt: (data.updated_at as string) || new Date().toISOString(),
-  };
-}
 
 // ── Mock generators ──
 

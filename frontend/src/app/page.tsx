@@ -1,14 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { KPIGrid } from "@/components/dashboard/KPIGrid";
 import { TopicList } from "@/components/dashboard/TopicList";
 import { TopicDetailPanel } from "@/components/topic/TopicDetailPanel";
 import { TopicData } from "@/types";
+import { useTopicStore } from "@/store/topicStore";
 
 /** Página principal del dashboard con KPIs, lista de topics y panel de detalle */
 export default function DashboardPage() {
   const [selectedTopic, setSelectedTopic] = useState<TopicData | null>(null);
+  const loadTopics = useTopicStore((s) => s.loadTopics);
+
+  useEffect(() => {
+    loadTopics();
+  }, [loadTopics]);
 
   return (
     <div className="animate-fade-in">

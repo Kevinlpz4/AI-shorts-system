@@ -10,12 +10,12 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from application.dto import (
+from application.dtos.requests import (
     GenerateContentRequest,
     EvaluateRequest,
     TrendRequest,
 )
-from application.dto.responses import ContentResult
+from application.dtos.responses import ContentResult
 
 from research.application.dtos import (
     AutoDiscoverDTO,

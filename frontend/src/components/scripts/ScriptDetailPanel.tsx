@@ -140,9 +140,9 @@ export function ScriptDetailPanel({ script, onClose }: ScriptDetailPanelProps) {
             <span
               className={clsx(
                 "text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0",
-                script.topic_score >= 80
+                script.topic_score >= 8
                   ? "bg-cyber-green/10 text-cyber-green"
-                  : script.topic_score >= 60
+                  : script.topic_score >= 6
                     ? "bg-cyber-yellow/10 text-cyber-yellow"
                     : "bg-cyber-red/10 text-cyber-red",
               )}

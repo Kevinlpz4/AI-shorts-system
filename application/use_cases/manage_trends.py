@@ -6,8 +6,8 @@ from domain.ports.trend_source import TrendSourcePort
 from domain.ports.content_repository import ContentRepository
 from domain.ports.cache import CachePort
 from domain.exceptions.trends import TrendNotFoundError
-from application.dto import TrendRequest
-from application.dto.responses import ContentResult
+from application.dtos.requests import TrendRequest
+from application.dtos.responses import ContentResult
 
 logger = logging.getLogger(__name__)
 

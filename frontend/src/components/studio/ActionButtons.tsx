@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/Button";
-import { RefreshCw, Check, X } from "lucide-react";
+import { RefreshCw, Check } from "lucide-react";
 
 /** Props for the script action buttons */
 interface ActionButtonsProps {

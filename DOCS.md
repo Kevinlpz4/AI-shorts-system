@@ -66,7 +66,7 @@
 │       │                      │                               │
 │  ┌────▼──────────────────────▼──────────────────────────┐  │
 │  │           Infrastructure Layer                        │  │
-│  │  SQLiteRepos │ OpenRouter AI │ Mock Providers        │  │
+│  │  PostgreSQL (SQLAlchemy) │ OpenRouter AI │ Mock    │  │
 │  │  GoogleNews RSS │ File Persistence │ TTS │ Video     │  │
 │  └──────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
@@ -79,7 +79,7 @@
 | Backend | Python | 3.12.3 |
 | API Framework | FastAPI | 0.136.3 |
 | AI Provider | OpenRouter (multi-model) | — |
-| Database | SQLite (WAL mode) | — |
+| Database | PostgreSQL 16 | SQLAlchemy 2.0 |
 | Frontend | Next.js (App Router) | 14.2.35 |
 | State | Zustand | — |
 | Styling | TailwindCSS | 3.4 |
@@ -102,6 +102,7 @@
 
 - Python 3.12+
 - Node.js 18+ (recommended: 20.x via nvm)
+- PostgreSQL 16+ running locally
 - OpenRouter API key (in `.env`)
 
 ### Backend Setup
@@ -116,15 +117,23 @@ source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
+pip install sqlalchemy psycopg2-binary  # PostgreSQL + SQLAlchemy
+
+# Set up PostgreSQL database
+createdb -U kevin system_shorts
+# Enter password when prompted (default: 1234)
 
 # Set up environment
 cp .env.example .env
-# Edit .env with your OPENROUTER_API_KEY
+# Edit .env with your OPENROUTER_API_KEY and DATABASE_URL if needed
+
+# Run migration: SQLite → PostgreSQL (first time only)
+python scripts/migrate_to_postgres.py
 
 # Run the API server
 python app/main.py api --reload
 # → http://localhost:8000
-# → Swagger UI: http://localhost:8000/docs
+# → Swagger UI: http://localhost:8000/api/docs
 ```
 
 ### Frontend Setup
@@ -154,8 +163,8 @@ npm run dev
 
 ```bash
 # Backend (in another terminal)
-curl http://localhost:8000/api/v1/status
-# → {"version":"1.0.0","uptime":"...","topics":{...}}
+curl http://localhost:8000/
+# → {"service":"AI Shorts System API","version":"1.0.0","docs":"/api/docs"}
 
 # Frontend: open http://localhost:3000
 # You should see the cyberpunk dashboard with topic data
@@ -216,9 +225,11 @@ infrastructure/              # Infrastructure Layer (adapters)
 │   ├── openrouter_provider.py  # OpenRouter (real AI calls)
 │   └── mock_provider.py        # Mock AI for testing
 ├── persistence/
-│   ├── sqlite_script_repository.py  # SQLite ScriptRepository
-│   ├── sqlite_repository.py         # SQLite ResearchRepository
-│   └── file_repository.py           # File-based persistence
+│   ├── database.py                  # SQLAlchemy engine + SessionFactory
+│   ├── models.py                    # SQLAlchemy ORM models (ResearchTopic, Script, SchedulerConfig)
+│   ├── postgres_script_repository.py     # PostgreSQL ScriptRepository
+│   ├── sqlite_script_repository.py       # SQLite ScriptRepository (DEPRECATED)
+│   └── file_repository.py               # File-based persistence
 ├── publishing/
 │   └── mock_publisher.py    # Mock YouTube/TikTok publisher
 └── tts/
@@ -235,8 +246,12 @@ research/                    # Research Module (DDD sub-domain)
 │   ├── use_cases/                     # AutoDiscoverTopics, ApproveTopic, RejectTopic, etc.
 │   └── dtos.py                        # Research DTOs
 └── infrastructure/
-    ├── persistence/sqlite_repository.py  # SQLite ResearchRepository
-    └── sources/                          # GoogleNewsRSS, MockSource
+    ├── persistence/
+    │   ├── postgres_repository.py     # PostgreSQL ResearchRepository
+    │   ├── postgres_scheduler_config.py # PostgreSQL SchedulerConfig
+    │   ├── sqlite_repository.py       # SQLite ResearchRepository (DEPRECATED)
+    │   └── scheduler_config.py        # SQLite SchedulerConfig (DEPRECATED)
+    └── sources/                       # GoogleNewsRSS, MockSource
 
 presentation/                # Presentation Layer
 ├── cli/
@@ -540,69 +555,92 @@ HTTP Status Codes:
 
 ## 5. Database Schema
 
-Both tables live in the same SQLite database file (default: `data/research.db`).
+The system uses **PostgreSQL 16** with **SQLAlchemy 2.0** ORM. The SQLAlchemy models live in `infrastructure/persistence/models.py` and define the schema programmatically.
 
-### `research_topics`
+### ORM Models
 
-```sql
-CREATE TABLE IF NOT EXISTS research_topics (
-    id TEXT PRIMARY KEY,
-    title TEXT NOT NULL,
-    description TEXT DEFAULT '',
-    content TEXT DEFAULT '',
-    source_name TEXT NOT NULL,
-    source_type TEXT NOT NULL,
-    source_url TEXT,
-    status TEXT NOT NULL DEFAULT 'pending_review',
-    score_total REAL DEFAULT 0,
-    score_relevance REAL DEFAULT 0,
-    score_popularity REAL DEFAULT 0,
-    score_recency REAL DEFAULT 0,
-    score_source_reliability REAL DEFAULT 0,
-    url TEXT,
-    author TEXT,
-    published_at TEXT,
-    created_at TEXT NOT NULL,
-    reviewed_at TEXT,
-    duplicate_hash TEXT
-);
+```python
+# infrastructure/persistence/models.py — SQLAlchemy declarative models
 
-CREATE INDEX IF NOT EXISTS idx_research_topics_status ON research_topics(status);
-CREATE INDEX IF NOT EXISTS idx_research_topics_created ON research_topics(created_at);
-CREATE INDEX IF NOT EXISTS idx_research_topics_duplicate_hash ON research_topics(duplicate_hash);
+class SchedulerConfigModel(Base):
+    """Configuración del scheduler (key-value)."""
+    __tablename__ = "scheduler_config"
+    key = Column(String(255), primary_key=True)
+    value = Column(Text, nullable=False, default="")
+
+class ResearchTopicModel(Base):
+    """Topic de investigación — aggregate root del módulo Research."""
+    __tablename__ = "research_topics"
+    id = Column(String(36), primary_key=True)
+    title = Column(Text, nullable=False)
+    description = Column(Text, nullable=False)
+    content = Column(Text, nullable=False)
+    source_name = Column(String(100), nullable=False)
+    source_type = Column(String(50), nullable=False)
+    source_reliability = Column(Integer, nullable=False, default=50)
+    score_relevance = Column(Integer, nullable=False, default=0)
+    score_popularity = Column(Integer, nullable=False, default=0)
+    score_recency = Column(Integer, nullable=False, default=0)
+    score_reliability = Column(Integer, nullable=False, default=0)
+    status = Column(String(50), nullable=False, default="pending_review")
+    url = Column(Text, nullable=True)
+    author = Column(String(255), nullable=True)
+    published_at = Column(Text, nullable=True)
+    created_at = Column(Text, nullable=False)
+    reviewed_at = Column(Text, nullable=True)
+    duplicate_hash = Column(Text, nullable=True)
+    scripts = relationship("ScriptModel", back_populates="topic")
+
+class ScriptModel(Base):
+    """Guion generado para un topic."""
+    __tablename__ = "scripts"
+    id = Column(String(36), primary_key=True)
+    topic_id = Column(String(36), ForeignKey("research_topics.id", ondelete="CASCADE"),
+                      unique=True, nullable=False)
+    hook = Column(Text, nullable=False)
+    body = Column(Text, nullable=False)
+    cta = Column(Text, nullable=False)
+    duration = Column(Integer, nullable=False, default=45)
+    tone = Column(String(50), nullable=False, default="educational")
+    format = Column(String(50), nullable=False, default="story")
+    created_at = Column(Text, nullable=False)
+    updated_at = Column(Text, nullable=False)
+    topic = relationship("ResearchTopicModel", back_populates="scripts")
 ```
 
-### `scripts`
+### Database Engine & Sessions
 
-```sql
-CREATE TABLE IF NOT EXISTS scripts (
-    id TEXT PRIMARY KEY,
-    topic_id TEXT NOT NULL UNIQUE,
-    hook TEXT NOT NULL DEFAULT '',
-    body TEXT NOT NULL DEFAULT '',
-    cta TEXT NOT NULL DEFAULT '',
-    duration INTEGER NOT NULL DEFAULT 45,
-    tone TEXT NOT NULL DEFAULT 'educational',
-    format TEXT NOT NULL DEFAULT 'story',
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    FOREIGN KEY (topic_id) REFERENCES research_topics(id) ON DELETE CASCADE
-);
+```python
+# infrastructure/persistence/database.py
+engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_size=5, max_overflow=10)
+SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
-CREATE INDEX IF NOT EXISTS idx_scripts_topic_id ON scripts(topic_id);
+def ensure_tables() -> None:
+    """Crea las tablas si no existen (idempotente)."""
+    Base.metadata.create_all(bind=engine)
+
+def get_session():
+    """Dependency injection helper."""
+    with SessionLocal() as session:
+        yield session
 ```
 
 ### Migration Pattern
 
-Both repositories use `_ensure_table()` called on every instantiation:
+For initial setup, use the migration script (`scripts/migrate_to_postgres.py`):
 
-```python
-def _ensure_table(self):
-    self._cursor.execute("""CREATE TABLE IF NOT EXISTS ...""")
-    self._connection.commit()
+```bash
+python scripts/migrate_to_postgres.py
 ```
 
-This is not a migration system — it's a "create if not exists" pattern. For schema changes, a proper migration tool should be added in production.
+This script:
+1. **Extracts** all data from SQLite (`data/research.db`)
+2. **Loads** into PostgreSQL using `session.merge()` (idempotent — INSERT ON CONFLICT UPDATE)
+3. **Validates** that row counts match between SQLite and PostgreSQL
+
+Post-migration, the application runs entirely on PostgreSQL. The SQLite file is kept as a backup reference.
+
+For schema changes in production, use SQLAlchemy migrations (Alembic recommended).
 
 ---
 
@@ -822,9 +860,9 @@ Only `help`, `echo`, and `clear` work in offline mode.
                     │
                     ▼
            ┌─────────────────┐
-           │  SQLite save     │
-           │  (upsert)        │
-           └─────────────────┘
+            │  PostgreSQL save  │
+            │  (SQLAlchemy)    │
+            └─────────────────┘
 ```
 
 ### Bridge: ResearchTopic → ContentIdea
@@ -866,8 +904,8 @@ Create `.env` in the project root:
 
 ```env
 OPENROUTER_API_KEY=sk-or-v1-...
+DATABASE_URL=postgresql+psycopg2://kevin:1234@localhost:5432/system_shorts
 # Optional:
-DATABASE_PATH=data/research.db
 API_HOST=127.0.0.1
 API_PORT=8000
 API_CORS_ORIGINS=["http://localhost:3000"]
@@ -993,5 +1031,5 @@ netstat -ano | grep :8000
 
 ---
 
-> **Last updated**: 2026-06-29
-> **Generated from**: `sdd/script-generation-api-integration`
+> **Last updated**: 2026-07-01
+> **Database**: PostgreSQL 16 via SQLAlchemy 2.0

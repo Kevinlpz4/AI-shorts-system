@@ -2,8 +2,8 @@
 Tests para DTOs de la capa de aplicación.
 """
 import pytest
-from application.dto import GenerateContentRequest, EvaluateRequest, TrendRequest
-from application.dto.responses import ContentResult, EvaluationResponse
+from application.dtos.requests import GenerateContentRequest, EvaluateRequest, TrendRequest
+from application.dtos.responses import ContentResult, EvaluationResponse
 
 
 class TestGenerateContentRequest:

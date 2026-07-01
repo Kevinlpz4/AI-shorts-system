@@ -23,7 +23,7 @@ from typing import Optional
 
 from research.application.use_cases.auto_discover import AutoDiscoverTopicsUseCase
 from research.application.dtos import AutoDiscoverDTO
-from research.infrastructure.persistence.scheduler_config import SchedulerConfig
+from research.infrastructure.persistence.postgres_scheduler_config import PostgresSchedulerConfig
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class ResearchScheduler:
     def __init__(
         self,
         auto_discover_use_case: AutoDiscoverTopicsUseCase,
-        config: SchedulerConfig,
+        config: PostgresSchedulerConfig,
     ):
         self._use_case = auto_discover_use_case
         self._config = config

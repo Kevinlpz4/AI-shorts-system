@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { useTopicStore } from "@/store/topicStore";
 import { Card } from "@/components/ui/Card";
 import { Compass, Clock, CheckCircle, XCircle } from "lucide-react";
@@ -60,11 +59,7 @@ function KPIItem({ label, value, icon, color, glow }: KPIItemProps) {
  * Carga datos del store al montarse y muestra mini-barras de progreso.
  */
 export function KPIGrid() {
-  const { kpiStats, loadTopics } = useTopicStore();
-
-  useEffect(() => {
-    loadTopics();
-  }, [loadTopics]);
+  const { kpiStats } = useTopicStore();
 
   const items = [
     {

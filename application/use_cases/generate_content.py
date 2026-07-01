@@ -27,8 +27,8 @@ from domain.ports.publisher import PublisherPort, PublishResult
 from domain.ports.cache import CachePort
 from domain.services.content_evaluator import ContentEvaluator
 
-from application.dto import GenerateContentRequest
-from application.dto.responses import ContentResult
+from application.dtos.requests import GenerateContentRequest
+from application.dtos.responses import ContentResult
 from application.error_mapper import ErrorMapper
 
 logger = logging.getLogger(__name__)

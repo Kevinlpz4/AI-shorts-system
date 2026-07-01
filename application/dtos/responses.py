@@ -1,3 +1,8 @@
+"""
+Response DTOs — Data Transfer Objects para respuestas
+=======================================================
+Respuestas estándar para los casos de uso.
+"""
 from dataclasses import dataclass, field
 from typing import Optional, Any
 

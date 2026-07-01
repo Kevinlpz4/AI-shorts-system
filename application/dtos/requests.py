@@ -1,7 +1,7 @@
 """
-DTOs — Objetos de transferencia de datos
-=========================================
-Requests y Responses para los casos de uso.
+Request DTOs — Data Transfer Objects para solicitudes
+======================================================
+Requests para los casos de uso legacy.
 """
 from dataclasses import dataclass, field
 from typing import Optional

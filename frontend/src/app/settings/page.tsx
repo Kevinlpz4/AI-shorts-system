@@ -14,13 +14,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import type { SchedulerStatus, SchedulerConfig } from "@/types";
-
-/** Obtiene la base URL de la API desde env var, o vacío para modo mock */
-function getApiBase(): string {
-  return typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_URL
-    ? process.env.NEXT_PUBLIC_API_URL
-    : "";
-}
+import { getApiBase } from "@/lib/utils";
 
 /** Página de configuración del sistema */
 export default function SettingsPage() {

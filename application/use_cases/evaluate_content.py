@@ -5,8 +5,8 @@ from domain.entities.content_idea import ContentIdea
 from domain.entities.script import Script
 from domain.services.content_evaluator import ContentEvaluator, EvaluationResult
 from domain.ports.content_repository import ContentRepository
-from application.dto import EvaluateRequest
-from application.dto.responses import ContentResult, EvaluationResponse
+from application.dtos.requests import EvaluateRequest
+from application.dtos.responses import ContentResult, EvaluationResponse
 from application.error_mapper import ErrorMapper
 
 logger = logging.getLogger(__name__)
