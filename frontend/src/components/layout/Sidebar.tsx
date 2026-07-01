@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import clsx from "clsx";
+import { LayoutGroup, motion } from "framer-motion";
 import {
   LayoutDashboard,
   Compass,
@@ -15,13 +15,9 @@ import {
   Terminal,
 } from "lucide-react";
 
-/** Item de navegación del sidebar */
 interface NavItem {
-  /** Ruta de destino */
   href: string;
-  /** Texto visible */
   label: string;
-  /** Icono SVG */
   icon: React.ReactNode;
 }
 
@@ -37,80 +33,166 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/terminal", label: "Terminal", icon: <Terminal size={18} /> },
 ];
 
+const sidebarVariants = {
+  initial: { x: -280 },
+  animate: {
+    x: 0,
+    transition: { type: "spring" as const, stiffness: 100, damping: 20 },
+  },
+};
+
 export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 z-40 flex flex-col">
-      {/* Scan line effect */}
-      <div className="absolute inset-0 bg-cyber-grid bg-grid opacity-30 pointer-events-none" />
-
+    <motion.aside
+      variants={sidebarVariants}
+      initial="initial"
+      animate="animate"
+      className="fixed left-0 top-0 h-screen w-64 z-40 flex flex-col"
+    >
       {/* Glass background */}
-      <div className="absolute inset-0 bg-cyber-black/90 backdrop-blur-xl border-r border-glass-border" />
+      <div className="absolute inset-0 backdrop-blur-2xl bg-base-800/60 border-r border-glass-border" />
+      <div className="absolute inset-0 bg-layer-noise pointer-events-none" />
 
       {/* Content */}
       <div className="relative z-10 flex flex-col h-full">
         {/* Logo */}
-        <div className="p-6 border-b border-glass-border">
+        <div className="px-5 py-6 border-b border-glass-border">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-cyber-magenta/20 border border-cyber-magenta/40 flex items-center justify-center">
-              <span className="text-cyber-magenta text-lg font-display font-bold">
+            <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-neon-violet/30 to-neon-magenta/20 border border-neon-violet/30 flex items-center justify-center overflow-hidden">
+              <div className="absolute inset-0 bg-glass-shine" />
+              <span className="relative text-sm font-display font-bold text-white">
                 AI
               </span>
             </div>
             <div>
-              <h1 className="text-sm font-display font-bold text-white tracking-wider">
-                CONTENT DISCOVERY
+              <h1 className="text-xs font-display font-semibold text-white tracking-wider">
+                AI SHORTS
               </h1>
-              <p className="text-[10px] font-mono text-cyber-cyan/60 tracking-widest uppercase">
-                Control Room v1.0
+              <p className="text-[9px] font-mono text-neon-cyan/50 tracking-[0.2em] uppercase">
+                Control Room
               </p>
             </div>
           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={clsx(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-mono transition-all duration-200",
-                  "border border-transparent",
-                  isActive
-                    ? "bg-cyber-magenta/15 border-cyber-magenta/30 text-cyber-magenta shadow-neon-magenta/20"
-                    : "text-gray-400 hover:text-white hover:bg-glass-white hover:border-glass-border"
-                )}
-              >
-                <span
-                  className={clsx(
-                    "transition-transform duration-200",
-                    isActive && "scale-110"
-                  )}
-                >
-                  {item.icon}
-                </span>
-                <span>{item.label}</span>
-                {isActive && (
-                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-cyber-magenta animate-glow-pulse" />
-                )}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+          <LayoutGroup>
+            {NAV_ITEMS.map((item) => {
+              const isActive =
+                item.href === "/"
+                  ? pathname === "/"
+                  : pathname === item.href ||
+                    pathname.startsWith(item.href + "/");
+              return (
+                <div key={item.href}>
+                  <Link
+                    href={item.href}
+                    className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-300 group
+                      ${
+                        isActive
+                          ? "text-neon-magenta"
+                          : "text-neon-magenta/50 hover:text-neon-magenta"
+                      }`}
+                  >
+                    {/* Active glow background */}
+                    {isActive && (
+                      <motion.div
+                        layoutId="nav-active"
+                        layout
+                        className="absolute inset-0 rounded-xl"
+                        style={{
+                          background:
+                            "linear-gradient(135deg, rgba(124,58,237,0.15) 0%, rgba(0,229,255,0.05) 100%)",
+                          border: "1px solid rgba(124,58,237,0.2)",
+                          boxShadow:
+                            "0 0 20px rgba(124,58,237,0.08), inset 0 1px 0 rgba(255,255,255,0.06)",
+                        }}
+                        transition={{
+                          type: "spring" as const,
+                          stiffness: 200,
+                          damping: 25,
+                        }}
+                      />
+                    )}
+
+                    {/* Hover glow (non-active) */}
+                    {!isActive && (
+                      <div
+                        className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                        style={{
+                          background:
+                            "linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 100%)",
+                          border: "1px solid rgba(255,255,255,0.05)",
+                        }}
+                      />
+                    )}
+
+                    {/* Icon */}
+                    <span
+                      className={`relative transition-all duration-300 ${
+                        isActive
+                          ? "text-neon-cyan scale-110"
+                          : "group-hover:scale-110"
+                      }`}
+                    >
+                      {item.icon}
+                    </span>
+
+                    {/* Label */}
+                    <span className="relative font-medium tracking-wide">
+                      {item.label}
+                    </span>
+
+                    {/* Active indicator dot */}
+                    {isActive && (
+                      <motion.span
+                        layoutId="nav-dot"
+                        layout
+                        className="ml-auto w-1.5 h-1.5 rounded-full bg-neon-cyan shrink-0"
+                        animate={{
+                          boxShadow: [
+                            "0 0 4px rgba(0,229,255,0.5)",
+                            "0 0 8px rgba(0,229,255,0.8)",
+                            "0 0 4px rgba(0,229,255,0.5)",
+                          ],
+                        }}
+                        transition={{
+                          boxShadow: {
+                            duration: 2,
+                            repeat: Infinity,
+                          },
+                          layout: {
+                            type: "spring" as const,
+                            stiffness: 300,
+                            damping: 30,
+                          },
+                        }}
+                      />
+                    )}
+                  </Link>
+                </div>
+              );
+            })}
+          </LayoutGroup>
         </nav>
 
         {/* System status footer */}
-        <div className="p-4 border-t border-glass-border">
-          <div className="flex items-center gap-2 text-[10px] font-mono text-gray-500">
-            <span className="w-2 h-2 rounded-full bg-cyber-green animate-glow-pulse" />
-            <span>System Online</span>
-            <span className="ml-auto text-cyber-cyan/50">v1.0.0</span>
+        <div className="px-5 py-4 border-t border-glass-border">
+          <div className="flex items-center gap-2.5">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-green opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-neon-green" />
+            </span>
+            <span className="text-[10px] font-mono text-gray-500">System Online</span>
+            <span className="ml-auto text-[9px] font-mono text-gray-600 tracking-wider">
+              v2.0
+            </span>
           </div>
         </div>
       </div>
-    </aside>
+    </motion.aside>
   );
 }

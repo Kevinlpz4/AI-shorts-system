@@ -1,44 +1,28 @@
 // ═══════════════════════════════════════════════════
 // ListTopics — Application Use Case
 // ═══════════════════════════════════════════════════
-// Lista topics con filtros.
-// Sin lógica de negocio — solo orquestación.
+// Lista topics con filtros vía API.
 
-import { Topic } from "@/domain/entities/Topic";
+import { TopicData } from "@/types";
 import { ITopicRepository, TopicFilters } from "@/domain/ports/ITopicRepository";
-import { ScoringService } from "@/domain/services/ScoringService";
 
 /**
  * Use case: listar topics con filtros opcionales.
  *
- * Recalcula scores al vuelo (factores como recencia cambian con el tiempo).
- * Sin lógica de negocio — solo orquestación entre repositorio y dominio.
+ * El backend maneja scores, filtros y ordenamiento.
  */
 export class ListTopics {
-  constructor(
-    private readonly repository: ITopicRepository,
-    private readonly scoringService: ScoringService
-  ) {}
+  constructor(private readonly repository: ITopicRepository) {}
 
   /**
-   * Ejecuta la consulta de topics aplicando filtros y recalculando scores.
-   * @param filters - Filtros opcionales (status, sourceName, minScore, searchQuery, limit, offset)
-   * @returns Lista de entidades Topic con scores actualizados
+   * Ejecuta la consulta de topics aplicando filtros.
+   * @returns Lista de TopicData con scores desde el backend
    */
-  async execute(filters?: TopicFilters): Promise<Topic[]> {
-    const topics = await this.repository.findAll(filters);
-
-    // Re-calcular scores (pueden haber cambiado factores externos como recencia)
-    return topics.map((topic) => {
-      const newScore = this.scoringService.calculate(topic);
-      return topic.rescore(newScore.toPlain());
-    });
+  async execute(filters?: TopicFilters): Promise<TopicData[]> {
+    return this.repository.findAll(filters);
   }
 
-  /**
-   * Obtiene estadísticas KPI directamente del repositorio.
-   * @returns Conteo de topics por estado (discovered, pendingReview, approved, rejected)
-   */
+  /** Obtiene estadísticas KPI directamente del repositorio. */
   async getKPIStats() {
     return this.repository.getKPIStats();
   }

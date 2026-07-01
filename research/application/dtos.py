@@ -130,6 +130,7 @@ class ResearchTopicDTO:
     author: Optional[str] = None
     created_at: Optional[datetime] = None
     reviewed_at: Optional[datetime] = None
+    duplicate_hash: Optional[str] = None
 
 
 @dataclass

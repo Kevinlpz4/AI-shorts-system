@@ -39,12 +39,13 @@ def topic_to_dto(topic: ResearchTopic) -> ResearchTopicDTO:
             "relevance": topic.score.relevance,
             "popularity": topic.score.popularity,
             "recency": topic.score.recency,
-            "source_reliability": topic.score.source_reliability,
+            "reliability": topic.score.source_reliability,
         },
         url=topic.url,
         author=topic.author,
         created_at=topic.created_at,
         reviewed_at=topic.reviewed_at,
+        duplicate_hash=topic.duplicate_hash,
     )
 
 

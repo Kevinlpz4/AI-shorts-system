@@ -3,14 +3,9 @@
 import { useEffect } from "react";
 import { useScriptStudioStore } from "@/store/scriptStudioStore";
 import { StudioLayout } from "./StudioLayout";
+import { motion } from "framer-motion";
 import { Loader2, AlertCircle, Inbox } from "lucide-react";
 
-/**
- * Container component for the Script Studio.
- *
- * Loads approved topics on mount and handles loading / error / empty states
- * before delegating to the 3-column StudioLayout.
- */
 export function ScriptStudio() {
   const { approvedTopics, isLoading, error, loadApprovedTopics, clearError } =
     useScriptStudioStore();
@@ -19,31 +14,36 @@ export function ScriptStudio() {
     loadApprovedTopics();
   }, [loadApprovedTopics]);
 
-  // ── Loading (initial) ──
+  // ── Loading ──
   if (isLoading && approvedTopics.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-        <Loader2 size={32} className="animate-spin text-cyber-cyan mb-4" />
-        <p className="text-sm font-mono">Loading approved topics...</p>
+      <div className="glass rounded-xl p-12 flex flex-col items-center justify-center gap-4">
+        <Loader2 size={28} className="animate-spin text-neon-cyan" />
+        <p className="text-sm font-mono text-gray-500">Loading approved topics...</p>
       </div>
     );
   }
 
   // ── Error ──
-  if (error) {
+  if (error && approvedTopics.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <AlertCircle size={32} className="text-cyber-red mb-4" />
-        <p className="text-sm font-mono text-cyber-red mb-2">
-          Error loading topics
-        </p>
-        <p className="text-xs font-mono text-gray-500">{error}</p>
-        <button
-          onClick={clearError}
-          className="mt-4 px-4 py-2 bg-glass-white border border-glass-border rounded-lg text-xs font-mono text-gray-300 hover:text-white transition-all"
+      <div className="glass rounded-xl p-12">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex flex-col items-center gap-4"
         >
-          Dismiss
-        </button>
+          <AlertCircle size={32} className="text-neon-red" />
+          <p className="text-sm font-mono text-neon-red">{error}</p>
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => { clearError(); loadApprovedTopics(); }}
+            className="px-5 py-2.5 glass rounded-xl text-xs font-mono text-gray-300 hover:text-white transition-all"
+          >
+            Retry
+          </motion.button>
+        </motion.div>
       </div>
     );
   }
@@ -51,16 +51,23 @@ export function ScriptStudio() {
   // ── Empty ──
   if (approvedTopics.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-        <Inbox size={32} className="mb-4" />
-        <p className="text-sm font-mono">No approved topics waiting for scripts</p>
-        <p className="text-xs font-mono text-gray-600 mt-1">
-          Approve topics from the review panel to start generating scripts
-        </p>
+      <div className="glass rounded-xl p-12">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col items-center"
+        >
+          <div className="relative p-4 rounded-2xl bg-glass-strong border border-glass-border mb-4">
+            <Inbox size={28} className="text-gray-500" />
+          </div>
+          <p className="text-sm font-mono text-gray-500">No approved topics</p>
+          <p className="text-xs font-mono text-gray-600 mt-1.5">
+            Approve topics from the Dashboard to start generating scripts
+          </p>
+        </motion.div>
       </div>
     );
   }
 
-  // ── Ready ──
   return <StudioLayout />;
 }

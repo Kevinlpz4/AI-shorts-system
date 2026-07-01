@@ -62,7 +62,7 @@ def _topic_to_dict(topic) -> dict:
             "relevance": topic.score.relevance,
             "popularity": topic.score.popularity,
             "recency": topic.score.recency,
-            "source_reliability": topic.score.source_reliability,
+            "reliability": topic.score.source_reliability,
         },
         "url": topic.url,
         "author": topic.author,
@@ -72,6 +72,7 @@ def _topic_to_dict(topic) -> dict:
         "reviewed_at": (
             topic.reviewed_at.isoformat() if topic.reviewed_at else None
         ),
+        "duplicate_hash": topic.duplicate_hash,
     }
 
 

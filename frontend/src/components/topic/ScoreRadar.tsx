@@ -7,7 +7,7 @@ import { ScoreGauge } from "@/components/topic/ScoreGauge";
 interface ScoreRadarProps {
   /** Componentes individuales del score */
   score: ScoreComponents;
-  /** Score total (0-10) */
+  /** Score total (0-100) */
   total: number;
   /** Tamaño del radar */
   size?: "sm" | "md";
@@ -15,7 +15,8 @@ interface ScoreRadarProps {
 
 /**
  * Radar visual de score con círculo SVG de progreso + barras individuales.
- * El color cambia según el valor: verde (≥7), amarillo (≥5), rojo (<5).
+ * Escala 0-100 alineada con el backend.
+ * El color cambia según el valor: verde (≥70), amarillo (≥50), rojo (<50).
  */
 export function ScoreRadar({ score, total, size = "md" }: ScoreRadarProps) {
   const items = [
@@ -47,19 +48,19 @@ export function ScoreRadar({ score, total, size = "md" }: ScoreRadarProps) {
               r="42"
               fill="none"
               stroke={
-                total >= 7 ? "#00FF88" : total >= 5 ? "#FFD700" : "#FF3355"
+                total >= 70 ? "#34D399" : total >= 50 ? "#FBBF24" : "#FB7185"
               }
               strokeWidth="6"
               strokeLinecap="round"
-              strokeDasharray={`${(total / 10) * 264} 264`}
+              strokeDasharray={`${(total / 100) * 264} 264`}
               className="transition-all duration-1000"
               style={{
-                filter: `drop-shadow(0 0 6px ${
-                  total >= 7
-                    ? "rgba(0,255,136,0.5)"
-                    : total >= 5
-                    ? "rgba(255,215,0,0.5)"
-                    : "rgba(255,51,85,0.5)"
+                filter: `drop-shadow(0 0 10px ${
+                  total >= 70
+                    ? "rgba(52,211,153,0.4)"
+                    : total >= 50
+                    ? "rgba(251,191,36,0.4)"
+                    : "rgba(251,113,133,0.4)"
                 })`,
               }}
             />
@@ -68,11 +69,11 @@ export function ScoreRadar({ score, total, size = "md" }: ScoreRadarProps) {
             <div className="text-center">
               <p
                 className={`text-2xl font-display font-bold ${
-                  total >= 7
-                    ? "text-cyber-green"
-                    : total >= 5
-                    ? "text-cyber-yellow"
-                    : "text-cyber-red"
+                  total >= 70
+                    ? "text-neon-green"
+                    : total >= 50
+                    ? "text-neon-yellow"
+                    : "text-neon-red"
                 }`}
               >
                 {total.toFixed(1)}
@@ -92,7 +93,7 @@ export function ScoreRadar({ score, total, size = "md" }: ScoreRadarProps) {
             key={item.label}
             label={item.label}
             value={item.value}
-            max={10}
+            max={100}
             color={item.color}
             size={size === "sm" ? "sm" : "md"}
           />

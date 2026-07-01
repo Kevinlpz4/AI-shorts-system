@@ -122,7 +122,7 @@ class AutoDiscoverTopicsUseCase:
                 is_dup = bool(topic_hashes & existing_hashes)
 
                 if topic_hashes:
-                    topic.duplicate_hash = next(iter(topic_hashes))
+                    topic.duplicate_hash = ",".join(sorted(topic_hashes))
 
                 # Score
                 topic.score = self._scorer.calculate(topic)

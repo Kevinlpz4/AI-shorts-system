@@ -8,8 +8,7 @@
 import { create } from "zustand";
 
 import { TopicData, ScriptData, ScriptRecommendations, StudioConfig } from "@/types";
-import { TopicStatusValue } from "@/domain/value-objects/TopicStatus";
-import { SourceType } from "@/domain/value-objects/Source";
+import { TopicStatusValue, SourceType } from "@/types";
 import { getApiBase, mapScriptFromApi } from "@/lib/utils";
 
 // ── State shape ──

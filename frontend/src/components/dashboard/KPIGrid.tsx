@@ -2,62 +2,56 @@
 
 import { useTopicStore } from "@/store/topicStore";
 import { Card } from "@/components/ui/Card";
-import { Compass, Clock, CheckCircle, XCircle } from "lucide-react";
-import clsx from "clsx";
+import { motion } from "framer-motion";
+import { Compass, Clock, CheckCircle, XCircle, TrendingUp } from "lucide-react";
 
-/** Props de cada item individual de KPI */
 interface KPIItemProps {
-  /** Label del KPI */
   label: string;
-  /** Valor numérico */
   value: number;
-  /** Icono SVG */
   icon: React.ReactNode;
-  /** Clase de color de texto */
-  color: string;
-  /** Color del glow en la Card */
-  glow: "magenta" | "cyan" | "purple" | "green" | "red";
+  glow: "cyan" | "violet" | "magenta" | "green" | "red";
+  accent: string;
 }
 
-function KPIItem({ label, value, icon, color, glow }: KPIItemProps) {
+function KPIItem({ label, value, icon, glow, accent }: KPIItemProps) {
   return (
-    <Card glow={glow} className="p-5">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs font-mono text-gray-400 uppercase tracking-wider">
-            {label}
-          </p>
-          <p
-            className={clsx(
-              "mt-2 text-3xl font-display font-bold",
-              color
-            )}
-          >
-            {value.toLocaleString()}
-          </p>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 100, damping: 20 }}
+    >
+      <Card glow={glow} className="p-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-[10px] font-mono text-gray-400 uppercase tracking-[0.15em]">
+              {label}
+            </p>
+            <div className="flex items-baseline gap-1 mt-2">
+              <span className={`text-3xl font-display font-bold ${accent}`}>
+                {value.toLocaleString()}
+              </span>
+              <TrendingUp size={16} className="text-neon-green/60" />
+            </div>
+          </div>
+          <div className={`relative p-3 rounded-xl ${accent.replace("text-", "bg-").replace("font-bold", "")}/10 border border-current/10`}>
+            <span className="absolute inset-0 bg-glass-shine rounded-xl" />
+            <span className="relative">{icon}</span>
+          </div>
         </div>
-        <div className={clsx("p-3 rounded-lg bg-opacity-20", color.replace("text-", "bg-").replace("font-", "") + "/10")}>
-          {icon}
+        {/* Micro bar */}
+        <div className="mt-4 h-[2px] rounded-full bg-glass-base overflow-hidden">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${Math.min(100, value * 8)}%` }}
+            transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+            className={`h-full rounded-full ${accent.replace("text-", "bg-")}`}
+          />
         </div>
-      </div>
-      {/* Minibar */}
-      <div className="mt-4 h-1 rounded-full bg-glass-white overflow-hidden">
-        <div
-          className={clsx(
-            "h-full rounded-full transition-all duration-500",
-            color.replace("text-", "bg-")
-          )}
-          style={{ width: `${Math.min(100, value * 10)}%` }}
-        />
-      </div>
-    </Card>
+      </Card>
+    </motion.div>
   );
 }
 
-/**
- * Grid de KPIs (Discovered, Pending Review, Approved, Rejected).
- * Carga datos del store al montarse y muestra mini-barras de progreso.
- */
 export function KPIGrid() {
   const { kpiStats } = useTopicStore();
 
@@ -65,36 +59,36 @@ export function KPIGrid() {
     {
       label: "Discovered",
       value: kpiStats.discovered,
-      icon: <Compass size={22} className="text-cyber-cyan" />,
-      color: "text-cyber-cyan",
+      icon: <Compass size={22} className="text-neon-cyan" />,
       glow: "cyan" as const,
+      accent: "text-neon-cyan font-bold",
     },
     {
       label: "Pending Review",
       value: kpiStats.pendingReview,
-      icon: <Clock size={22} className="text-cyber-yellow" />,
-      color: "text-cyber-yellow",
-      glow: "purple" as const,
+      icon: <Clock size={22} className="text-neon-yellow" />,
+      glow: "violet" as const,
+      accent: "text-neon-yellow font-bold",
     },
     {
       label: "Approved",
       value: kpiStats.approved,
-      icon: <CheckCircle size={22} className="text-cyber-green" />,
-      color: "text-cyber-green",
+      icon: <CheckCircle size={22} className="text-neon-green" />,
       glow: "green" as const,
+      accent: "text-neon-green font-bold",
     },
     {
       label: "Rejected",
       value: kpiStats.rejected,
-      icon: <XCircle size={22} className="text-cyber-red" />,
-      color: "text-cyber-red",
+      icon: <XCircle size={22} className="text-neon-red" />,
       glow: "red" as const,
+      accent: "text-neon-red font-bold",
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      {items.map((item) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {items.map((item, i) => (
         <KPIItem key={item.label} {...item} />
       ))}
     </div>

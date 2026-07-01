@@ -1,29 +1,39 @@
 // ═══════════════════════════════════════════════════
 // Domain Types — Shared type definitions
 // ═══════════════════════════════════════════════════
-// Status and SourceType are defined in domain/value-objects.
-// We re-export them here so application/infrastructure layers
-// have a single import path without depending on domain internals.
+// Standalone types — no longer depends on domain/value-objects.
+// These mirror the backend API response enums.
 
-import { TopicStatusValue } from "@/domain/value-objects/TopicStatus";
-import { SourceType } from "@/domain/value-objects/Source";
+// ── Enums ──
 
-// ── Re-exported types ──
+export enum TopicStatusValue {
+  FOUND = "FOUND",
+  PENDING_REVIEW = "PENDING_REVIEW",
+  APPROVED = "APPROVED",
+  REJECTED = "REJECTED",
+}
+
 export type TopicStatus = TopicStatusValue;
-export { TopicStatusValue } from "@/domain/value-objects/TopicStatus";
-export type { SourceType as SourceType } from "@/domain/value-objects/Source";
+
+export enum SourceType {
+  MANUAL = "manual",
+  AUTOMATIC = "automatic",
+  GOOGLE_NEWS = "google_news",
+  TWITTER = "twitter",
+  RSS = "rss",
+}
 
 // ── Shared interfaces ──
 
-/** Componentes individuales del score de un topic (0–10 cada uno) */
+/** Componentes individuales del score de un topic (0–100 cada uno) */
 export interface ScoreComponents {
-  /** Relevancia del contenido (0-10) */
+  /** Relevancia del contenido (0-100) */
   relevance: number;
-  /** Popularidad / engagement (0-10) */
+  /** Popularidad / engagement (0-100) */
   popularity: number;
-  /** Qué tan reciente es (0-10) */
+  /** Qué tan reciente es (0-100) */
   recency: number;
-  /** Confiabilidad de la fuente (0-10) */
+  /** Confiabilidad de la fuente (0-100) */
   reliability: number;
 }
 

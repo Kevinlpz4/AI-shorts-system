@@ -1,43 +1,58 @@
 "use client";
 
 import { HTMLAttributes, forwardRef } from "react";
-import clsx from "clsx";
+import { motion } from "framer-motion";
 
-/** Props del componente Card con glassmorphism y glow opcional */
-interface CardProps extends HTMLAttributes<HTMLDivElement> {
-  /** Color del glow hover: magenta, cyan, purple, green, red o none */
-  glow?: "magenta" | "cyan" | "purple" | "green" | "red" | "none";
-  /** Si es true, escala al hacer hover y muestra cursor pointer */
+type ConflictingHandlers =
+  | "onAnimationStart"
+  | "onDragStart"
+  | "onDragEnd"
+  | "onDrag";
+
+interface CardProps
+  extends Omit<HTMLAttributes<HTMLDivElement>, ConflictingHandlers> {
+  glow?: "cyan" | "violet" | "magenta" | "green" | "red" | "none";
   hoverable?: boolean;
 }
 
-const glowStyles = {
-  magenta: "hover:shadow-neon-magenta border-cyber-magenta/20",
-  cyan: "hover:shadow-neon-cyan border-cyber-cyan/20",
-  purple: "hover:shadow-neon-purple border-cyber-purple/20",
-  green: "hover:shadow-neon-green border-cyber-green/20",
-  red: "hover:shadow-neon-red border-cyber-red/20",
-  none: "border-glass-border",
+const glowClasses: Record<string, string> = {
+  cyan: "glass-glow-cyan",
+  violet: "glass-glow-violet",
+  magenta: "glass-glow-magenta",
+  green: "glass-glow-green",
+  red: "glass-glow-red",
+  none: "",
 };
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(
-  ({ glow = "none", hoverable = false, className, children, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={clsx(
-        // Glassmorphism base
-        "bg-glass-white backdrop-blur-xl",
-        "border rounded-xl",
-        "transition-all duration-300",
-        hoverable && "hover:bg-glass-light hover:scale-[1.02] cursor-pointer",
-        glowStyles[glow],
-        className
-      )}
-      {...props}
-    >
-      {children}
-    </div>
-  )
+  ({ glow = "none", hoverable = false, className, children, ...props }, ref) => {
+    return (
+      <motion.div
+        ref={ref}
+        whileHover={hoverable ? { y: -4, scale: 1.005 } : undefined}
+        transition={
+          hoverable
+            ? { type: "spring" as const, stiffness: 200, damping: 20 }
+            : undefined
+        }
+        className={`
+          relative glass rounded-xl overflow-hidden transition-all duration-300
+          ${glow !== "none" ? glowClasses[glow] : ""}
+          ${hoverable ? "cursor-pointer" : ""}
+          ${className || ""}
+        `.trim()}
+        {...props}
+      >
+        {/* Glass shine (top reflection) */}
+        <span className="absolute inset-0 pointer-events-none">
+          <span className="absolute inset-0 bg-glass-shine" />
+        </span>
+
+        {/* Content */}
+        <div className="relative z-[1]">{children}</div>
+      </motion.div>
+    );
+  }
 );
 
 Card.displayName = "Card";

@@ -2,11 +2,9 @@
 // ITopicRepository — Port (Interface Adapter pattern)
 // ═══════════════════════════════════════════════════
 // Define el contrato para persistencia de topics.
-// El dominio depende de esto, no al revés.
-// La implementación concreta vive en infrastructure/.
+// Implementaciones concretas en infrastructure/.
 
-import { Topic } from "@/domain/entities/Topic";
-import { TopicStatusValue } from "@/domain/value-objects/TopicStatus";
+import { TopicData, TopicStatusValue } from "@/types";
 
 export interface TopicFilters {
   status?: TopicStatusValue;
@@ -26,16 +24,16 @@ export interface KPIResult {
 
 export interface ITopicRepository {
   /** Obtener todos los topics (con filtros opcionales) */
-  findAll(filters?: TopicFilters): Promise<Topic[]>;
+  findAll(filters?: TopicFilters): Promise<TopicData[]>;
 
   /** Obtener un topic por ID */
-  findById(id: string): Promise<Topic | null>;
+  findById(id: string): Promise<TopicData | null>;
 
   /** Guardar un topic (crear o actualizar) */
-  save(topic: Topic): Promise<Topic>;
+  save(topic: TopicData): Promise<TopicData>;
 
   /** Guardar múltiples topics (batch) */
-  saveMany(topics: Topic[]): Promise<Topic[]>;
+  saveMany(topics: TopicData[]): Promise<TopicData[]>;
 
   /** Eliminar un topic */
   delete(id: string): Promise<void>;
@@ -44,5 +42,21 @@ export interface ITopicRepository {
   getKPIStats(): Promise<KPIResult>;
 
   /** Buscar duplicados por hash */
-  findByDuplicateHash(hash: string): Promise<Topic[]>;
+  findByDuplicateHash(hash: string): Promise<TopicData[]>;
+
+  /** Aprobar un topic */
+  approve(id: string): Promise<TopicData>;
+
+  /** Rechazar un topic */
+  reject(id: string, reason?: string): Promise<TopicData>;
+
+  /** Crear topic manual */
+  createManual(input: {
+    title: string;
+    description?: string;
+    url?: string | null;
+    content?: string;
+    author?: string;
+    sourceName?: string;
+  }): Promise<{ topic: TopicData; isDuplicate: boolean }>;
 }

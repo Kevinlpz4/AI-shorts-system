@@ -36,9 +36,9 @@ export function TopicQueueItem({
         : "text-cyber-red";
 
   const scoreBg =
-    topic.scoreTotal >= 8
+    topic.scoreTotal >= 80
       ? "bg-cyber-green/10 border-cyber-green/30"
-      : topic.scoreTotal >= 6
+      : topic.scoreTotal >= 60
         ? "bg-cyber-yellow/10 border-cyber-yellow/30"
         : "bg-cyber-red/10 border-cyber-red/30";
 

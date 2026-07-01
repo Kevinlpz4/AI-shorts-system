@@ -11,32 +11,40 @@ interface DashboardLayoutProps {
 }
 
 /**
- * Layout principal del dashboard con cyberpunk theme.
+ * Layout principal con diseño GlassOS — capas de fondo, sidebar, header.
  *
- * Incluye: fondo de cuadrícula, overlay de glow, línea de scan animada,
- * sidebar fijo a la izquierda, header sticky y área de contenido.
+ * Fondos:
+ * - Gradiente oscuro profundo
+ * - Textura noise sutil
+ * - Grid futurista con máscara radial
+ * - Orbes luminosos flotantes
  */
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
-    <div className="min-h-screen bg-cyber-black text-white">
-      {/* Cyber grid background */}
-      <div className="fixed inset-0 bg-cyber-grid bg-grid opacity-20 pointer-events-none" />
-      <div className="fixed inset-0 bg-cyber-glow pointer-events-none" />
+    <div className="min-h-screen bg-base-900 text-white antialiased">
+      {/* ═══ Background layers ═══ */}
+      <div className="background-layer bg-layer-deep" />
+      <div className="background-layer bg-layer-noise" />
+      <div className="background-layer bg-layer-grid" />
+      <div className="background-layer bg-layer-orbs">
+        <div className="orb orb-1" />
+        <div className="orb orb-2" />
+        <div className="orb orb-3" />
+        <div className="orb orb-4" />
+      </div>
 
-      {/* Scan line overlay */}
-      <div className="fixed inset-0 bg-scan-line opacity-[0.02] pointer-events-none animate-scan-line" />
+      {/* ═══ Content layers ═══ */}
+      <div className="relative z-10">
+        {/* Sidebar */}
+        <Sidebar />
 
-      {/* Sidebar */}
-      <Sidebar />
+        {/* Main area */}
+        <div className="pl-64">
+          <Header />
 
-      {/* Main area */}
-      <div className="pl-64">
-        <Header />
-
-        {/* Content */}
-        <main className="p-6 relative z-10 animate-fade-in">
-          {children}
-        </main>
+          {/* Content */}
+          <main className="p-6 lg:p-8 animate-fade-in">{children}</main>
+        </div>
       </div>
     </div>
   );

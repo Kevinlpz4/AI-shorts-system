@@ -4,7 +4,7 @@
 // Puerto para fuentes externas (Google News, Twitter, etc.).
 // Cualquier adapter externo implementa esto.
 
-import { Topic } from "@/domain/entities/Topic";
+import { TopicData } from "@/types";
 
 export interface ITopicSource {
   /** Nombre único de la fuente (ej: "google-news", "twitter") */
@@ -18,7 +18,7 @@ export interface ITopicSource {
    * @param query Término de búsqueda (opcional)
    * @param limit Máximo de resultados
    */
-  fetch(query?: string, limit?: number): Promise<Topic[]>;
+  fetch(query?: string, limit?: number): Promise<TopicData[]>;
 }
 
 /**

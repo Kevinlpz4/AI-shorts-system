@@ -1,42 +1,24 @@
 // ═══════════════════════════════════════════════════
 // RejectTopic — Application Use Case
 // ═══════════════════════════════════════════════════
-// Rechaza un topic. Validación vía TopicModerationService.
+// Rechaza un topic vía API.
 
-import { Topic } from "@/domain/entities/Topic";
+import { TopicData } from "@/types";
 import { ITopicRepository } from "@/domain/ports/ITopicRepository";
-import { TopicModerationService } from "@/domain/services/TopicModerationService";
 
 /**
  * Use case: rechazar un topic.
  *
- * Valúa que el topic sea elegible para rechazo (no terminal)
- * antes de transicionar el estado a REJECTED y persistir.
+ * Delega al backend REST la validación y persistencia.
  */
 export class RejectTopic {
-  constructor(
-    private readonly repository: ITopicRepository,
-    private readonly moderationService: TopicModerationService
-  ) {}
+  constructor(private readonly repository: ITopicRepository) {}
 
   /**
    * Ejecuta el rechazo de un topic por ID.
-   * @param topicId - ID único del topic a rechazar
-   * @returns Entidad Topic con estado actualizado
-   * @throws Error si el topic no existe o no cumple las reglas de moderación
+   * @returns TopicData con estado actualizado
    */
-  async execute(topicId: string): Promise<Topic> {
-    const topic = await this.repository.findById(topicId);
-    if (!topic) {
-      throw new Error(`Topic not found: ${topicId}`);
-    }
-
-    const validation = this.moderationService.validateRejection(topic);
-    if (!validation.canReject) {
-      throw new Error(`Cannot reject topic: ${validation.reason}`);
-    }
-
-    const rejected = topic.reject();
-    return this.repository.save(rejected);
+  async execute(topicId: string): Promise<TopicData> {
+    return this.repository.reject(topicId);
   }
 }

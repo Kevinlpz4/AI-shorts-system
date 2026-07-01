@@ -48,7 +48,7 @@ class TestTopicToDTO:
         assert "relevance" in dto.score_components
         assert "popularity" in dto.score_components
         assert "recency" in dto.score_components
-        assert "source_reliability" in dto.score_components
+        assert "reliability" in dto.score_components
 
 
 class TestEventToDict:

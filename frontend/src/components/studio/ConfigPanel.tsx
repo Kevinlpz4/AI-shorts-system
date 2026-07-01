@@ -5,14 +5,8 @@ import { DurationSelector } from "./DurationSelector";
 import { ToneSelector } from "./ToneSelector";
 import { NicheSelector } from "./NicheSelector";
 import { Button } from "@/components/ui/Button";
-import { Sliders, Sparkles, Loader2 } from "lucide-react";
+import { Sliders, Sparkles } from "lucide-react";
 
-/**
- * Center panel — Configuration for script generation.
- *
- * Shows the selected topic title and lets the user configure
- * duration, tone, and niche before generating a script.
- */
 export function ConfigPanel() {
   const {
     selectedTopic,
@@ -23,12 +17,11 @@ export function ConfigPanel() {
     generateScript,
   } = useScriptStudioStore();
 
-  // ── No topic selected ──
   if (!selectedTopic) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-gray-500">
-        <Sliders size={40} className="mb-3 opacity-30" />
-        <p className="text-sm font-mono">Select a topic to configure</p>
+      <div className="glass rounded-xl p-12 flex flex-col items-center justify-center h-full">
+        <Sliders size={40} className="mb-3 opacity-30 text-gray-500" />
+        <p className="text-sm font-mono text-gray-500">Select a topic to configure</p>
         <p className="text-xs font-mono text-gray-600 mt-1">
           Choose a topic from the queue to get started
         </p>
@@ -38,10 +31,9 @@ export function ConfigPanel() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="mb-4">
-        <div className="flex items-center gap-2 text-[10px] font-mono text-cyber-cyan/60 tracking-widest uppercase mb-1">
-          <Sparkles size={12} />
+        <div className="flex items-center gap-1.5 text-[10px] font-mono text-neon-cyan/60 tracking-[0.2em] uppercase mb-1">
+          <Sparkles size={12} className="text-neon-cyan" />
           <span>Script Configuration</span>
         </div>
         <h2 className="text-base font-display font-bold text-white leading-snug line-clamp-2">
@@ -50,21 +42,16 @@ export function ConfigPanel() {
       </div>
 
       <div className="flex-1 space-y-6">
-        {/* Duration */}
         <DurationSelector
           value={config.duration}
           onChange={(v) => setConfig({ duration: v })}
           recommended={recommendations?.duration}
         />
-
-        {/* Tone */}
         <ToneSelector
           value={config.tone}
           onChange={(v) => setConfig({ tone: v })}
           recommended={recommendations?.tone}
         />
-
-        {/* Niche */}
         <NicheSelector
           value={config.niche}
           onChange={(v) => setConfig({ niche: v })}
@@ -72,7 +59,6 @@ export function ConfigPanel() {
         />
       </div>
 
-      {/* Generate button */}
       <div className="mt-6 pt-4 border-t border-glass-border">
         <Button
           variant="secondary"
@@ -84,10 +70,7 @@ export function ConfigPanel() {
           glow
         >
           {isGenerating ? (
-            <>
-              <Loader2 size={16} className="animate-spin" />
-              Generating...
-            </>
+            <>Generating...</>
           ) : (
             <>
               <Sparkles size={16} />
