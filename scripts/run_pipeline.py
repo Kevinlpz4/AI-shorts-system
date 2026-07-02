@@ -65,8 +65,8 @@ async def main():
     logger.info(f"   Videos: {args.count}")
     
     # Verificar API keys
-    if not settings.OPENAI_API_KEY:
-        logger.warning("⚠️ OPENAI_API_KEY no configurada - usando modo mock")
+    if not settings.OPENROUTER_API_KEY:
+        logger.warning("⚠️ OPENROUTER_API_KEY no configurada - usando modo mock")
     
     # Ejecutar pipeline
     pipeline = ContentPipeline(

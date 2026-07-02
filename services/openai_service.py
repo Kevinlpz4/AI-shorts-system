@@ -1,7 +1,8 @@
 """
-OpenAI Service - Integración con OpenAI
-=======================================
-Servicio para usar modelos de OpenAI (GPT-4, etc).
+⚠️ DEPRECADO — Usá OpenRouterProvider + DI en su lugar.
+
+Este servicio se mantiene por compatibilidad backward.
+Internamente usa OpenRouter (API compatible con OpenAI SDK).
 """
 
 import asyncio
@@ -20,18 +21,19 @@ from app.logger import logger
 
 class OpenAIService:
     """
-    Servicio de OpenAI para generación de texto.
+    ⚠️ DEPRECADO - Servicio legacy.
     
-    Usa la API de OpenAI para:
-    - Generación de ideas
-    - Escritura de guiones
-    - Generación de hooks
+    Internamente usa OpenRouter (compatible con OpenAI SDK).
+    Usá OpenRouterProvider + DI para código nuevo.
     """
     
     def __init__(self):
         self.client = None
-        if OPENAI_AVAILABLE and settings.OPENAI_API_KEY:
-            self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        if OPENAI_AVAILABLE and settings.OPENROUTER_API_KEY:
+            self.client = AsyncOpenAI(
+                api_key=settings.OPENROUTER_API_KEY,
+                base_url=settings.OPENROUTER_BASE_URL,
+            )
     
     async def generate(
         self,
@@ -56,9 +58,9 @@ class OpenAIService:
             logger.warning("OpenAI API key no configurada")
             return ""
         
-        model = model or settings.OPENAI_MODEL
-        temperature = temperature or settings.OPENAI_TEMPERATURE
-        max_tokens = max_tokens or settings.OPENAI_MAX_TOKENS
+        model = model or settings.DEFAULT_MODEL
+        temperature = temperature or 0.7
+        max_tokens = max_tokens or 2000
         
         try:
             response = await self.client.chat.completions.create(

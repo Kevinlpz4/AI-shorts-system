@@ -10,10 +10,10 @@ Reusa del Container CLI:
   - research_scorer
   - auto_discover_topics, list_topics, approve_topic, reject_topic,
     register_manual_input
-  - ai_provider (con fallback wrapper)
+  - fallback_ai, _build_wrapped_provider (para crear AI wrappers)
 
 Agrega:
-  - script_repo: SQLiteScriptRepository
+  - script_repo: PostgresScriptRepository
   - generate_script_use_case, get_script_use_case, regenerate_script_use_case
 """
 import logging
@@ -52,8 +52,10 @@ class ApiContainer(Container):
         # ── Repositorio de Scripts (PostgreSQL via SQLAlchemy) ──
         self.script_repo = PostgresScriptRepository()
 
-        # ── Fallback AI wrapper (ya incluye generate_script) ──
-        ai = self._create_fallback_ai_wrapper()
+        # ── AI provider para scripts (modelo configurable vía MODEL_SCRIPT) ──
+        ai = self._build_wrapped_provider(
+            model=settings.MODEL_SCRIPT or settings.DEFAULT_MODEL,
+        )
 
         # ── Use Cases ──
         self.generate_script_use_case = GenerateScriptUseCase(

@@ -329,12 +329,11 @@ async def run_tests(container: Container):
     # Test 1: Configuración
     logger.info("\n1️⃣  Test: Configuración")
     try:
-        assert settings.OPENAI_API_KEY, "OPENAI_API_KEY debe estar configurada"
+        assert settings.OPENROUTER_API_KEY, "OPENROUTER_API_KEY debe estar configurada"
         logger.info(f"   ✅ API Key presente")
-        logger.info(f"   ✅ Proveedor: {settings.AI_PROVIDER}")
-        logger.info(f"   ✅ Modelo: {settings.OPENAI_MODEL}")
-        if settings.OPENAI_BASE_URL:
-            logger.info(f"   ✅ Base URL: {settings.OPENAI_BASE_URL}")
+        logger.info(f"   ✅ Proveedor: OpenRouter")
+        logger.info(f"   ✅ Modelo default: {settings.DEFAULT_MODEL}")
+        logger.info(f"   ✅ Base URL: {settings.OPENROUTER_BASE_URL}")
         passed += 1
     except AssertionError as e:
         logger.error(f"   ❌ {e}")

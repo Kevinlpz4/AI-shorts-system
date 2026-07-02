@@ -5,10 +5,10 @@
 aiohttp>=3.9.0
 asyncio-mqtt>=0.16.0
 
-# AI Providers (OpenAI, Anthropic, Gemini)
+# AI Providers — Solo OpenRouter (API compatible con OpenAI SDK)
+# OpenRouter permite acceder a OpenAI, Anthropic, Google, Mistral, etc.
+# con UNA sola API key. El SDK de OpenAI se usa como cliente HTTP.
 openai>=1.12.0
-anthropic>=0.20.0
-google-genai>=1.0.0
 
 # Video Processing
 moviepy>=1.0.3

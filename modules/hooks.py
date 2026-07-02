@@ -112,7 +112,7 @@ class HookGenerator:
         hooks = []
         
         # Usar IA si está disponible
-        if settings.OPENAI_API_KEY:
+        if settings.OPENROUTER_API_KEY:
             hooks = await self._generate_with_ai(script, variations)
         
         if not hooks:

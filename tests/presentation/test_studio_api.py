@@ -29,9 +29,8 @@ def api_app(tmp_path, monkeypatch):
     monkeypatch.setattr("app.config.settings.DATA_DIR", data_dir)
     monkeypatch.setattr("app.config.settings.AUDIO_DIR", audio_dir)
     monkeypatch.setattr("app.config.settings.VIDEO_DIR", video_dir)
-    monkeypatch.setattr("app.config.settings.AI_PROVIDER", "mock")
-    monkeypatch.setenv("AI_PROVIDER", "mock")
-
+    # AI_PROVIDER eliminado — el Container siempre usa OpenRouter.
+    # Sin OPENROUTER_API_KEY, automáticamente cae a MockAIProvider.
     container = ApiContainer()
     app = create_app(container)
     return app

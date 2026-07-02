@@ -2,7 +2,11 @@
 Composition Root — Fábrica de dependencias
 ============================================
 TODO el wiring de dependencias en UN solo lugar.
-Si cambiás un provider, lo cambiás SOLO acá.
+Si cambiás una implementación, lo cambiás SOLO acá.
+
+Sigue DIP: el contenedor registra implementaciones concretas del puerto
+AIProvider (domain/ports/ai_provider.py). Application y Domain
+NO saben qué implementación concreta se usa.
 """
 import logging
 from typing import Optional
@@ -14,7 +18,6 @@ from domain.services.content_evaluator import ContentEvaluator
 
 # ── Infrastructure ──
 from infrastructure.ai.openrouter_provider import OpenRouterProvider
-from infrastructure.ai.openai_compatible import OpenAICompatibleProvider
 from infrastructure.ai.mock_provider import MockAIProvider
 from infrastructure.tts.mock_provider import MockTTSProvider
 from infrastructure.cache.memory_cache import MemoryCache
@@ -50,12 +53,79 @@ from research.application.scheduler import ResearchScheduler
 logger = logging.getLogger(__name__)
 
 
+class FallbackAIWrapper:
+    """
+    Wrapper que intenta un provider primario y cae a MockAIProvider.
+    
+    Implementa duck-typing compatible con AIProvider, IdeaGeneratorPort
+    y ScriptGeneratorPort (domain/ports/ai_provider.py).
+    
+    Chain of Responsibility: primario → fallback.
+    """
+
+    def __init__(self, primary: Optional[OpenRouterProvider], fallback: MockAIProvider):
+        self._primary = primary
+        self._fallback = fallback
+
+    @property
+    def name(self) -> str:
+        if self._primary:
+            return f"{self._primary.name}+{self._fallback.name}"
+        return self._fallback.name
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    async def generate(self, prompt: str, **kwargs) -> str:
+        """Intenta primario → fallback."""
+        if self._primary and self._primary.available:
+            try:
+                return await self._primary.generate(prompt, **kwargs)
+            except Exception as e:
+                logger.warning(f"⚠️ {self._primary.name} falló: {e}. Usando fallback.")
+        return await self._fallback.generate(prompt, **kwargs)
+
+    async def generate_json(self, prompt: str, **kwargs) -> dict:
+        """Intenta primario → fallback (JSON)."""
+        if self._primary and self._primary.available:
+            try:
+                return await self._primary.generate_json(prompt, **kwargs)
+            except Exception as e:
+                logger.warning(f"⚠️ {self._primary.name} falló (json): {e}. Usando fallback.")
+        return await self._fallback.generate_json(prompt, **kwargs)
+
+    async def generate_script(self, idea, duration=45, tone="educational"):
+        """
+        Genera script: intenta primario (si tiene generate_script) → fallback.
+        
+        OpenRouterProvider NO implementa generate_script (usa generate_json),
+        así que por ahora siempre cae a MockAIProvider para scripts.
+        """
+        if self._primary and hasattr(self._primary, 'generate_script'):
+            try:
+                if self._primary.available:
+                    return await self._primary.generate_script(
+                        idea=idea, duration=duration, tone=tone
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"⚠️ {self._primary.name} falló (script): {e}. Usando fallback."
+                )
+        return await self._fallback.generate_script(
+            idea=idea, duration=duration, tone=tone
+        )
+
+
 class Container:
     """
     Contenedor de dependencias.
     
     Crea y conecta TODAS las dependencias del sistema.
     Centraliza la configuración para facilitar cambios.
+    
+    DIP: el contenedor conoce las implementaciones concretas,
+    pero Application y Domain solo ven los puertos (Protocols).
     """
     
     def __init__(self):
@@ -94,6 +164,83 @@ class Container:
         self._init_use_cases()
 
         logger.info("✅ Container: todas las dependencias inicializadas")
+
+    # ═══════════════════════════════════════════════
+    # AI Providers
+    # ═══════════════════════════════════════════════
+
+    def _init_ai_providers(self):
+        """
+        Inicializa proveedores de IA.
+        
+        Único provider real: OpenRouter (vía OpenRouterProvider).
+        Fallback: MockAIProvider para desarrollo/testing.
+        
+        Cada caso de uso puede tener un modelo específico configurable
+        via env vars (MODEL_RESEARCH, MODEL_SCRIPT, etc.).
+        Si no se configura, usa DEFAULT_MODEL.
+        """
+        self.fallback_ai = MockAIProvider()
+
+        # Providers wrapped con fallback para cada caso de uso
+        self._ai_research = self._build_wrapped_provider(
+            model=settings.MODEL_RESEARCH or settings.DEFAULT_MODEL,
+        )
+        self._ai_scoring = self._build_wrapped_provider(
+            model=settings.MODEL_SCORING or settings.DEFAULT_MODEL,
+        )
+        self._ai_script = self._build_wrapped_provider(
+            model=settings.MODEL_SCRIPT or settings.DEFAULT_MODEL,
+        )
+        self._ai_title = self._build_wrapped_provider(
+            model=settings.MODEL_TITLE or settings.DEFAULT_MODEL,
+        )
+        self._ai_summary = self._build_wrapped_provider(
+            model=settings.MODEL_SUMMARY or settings.DEFAULT_MODEL,
+        )
+
+        # Default provider (backwards compat)
+        self.ai_provider = self._ai_research
+
+    def _build_wrapped_provider(self, model: str) -> FallbackAIWrapper:
+        """
+        Crea un OpenRouterProvider envuelto con fallback a MockAIProvider.
+        
+        Este método es reutilizable por subclases (ApiContainer).
+        Si OpenRouter no está disponible, retorna solo el fallback.
+        
+        Args:
+            model: Modelo a usar (ej: "openai/gpt-4o-mini", "anthropic/claude-sonnet-4")
+        """
+        primary = None
+        if settings.OPENROUTER_API_KEY:
+            try:
+                primary = OpenRouterProvider(
+                    api_key=settings.OPENROUTER_API_KEY,
+                    model=model,
+                    base_url=settings.OPENROUTER_BASE_URL,
+                    temperature=settings.OPENROUTER_TEMPERATURE,
+                    max_tokens=settings.OPENROUTER_MAX_TOKENS,
+                    extra_headers={
+                        "HTTP-Referer": settings.OPENROUTER_REFERER,
+                        "X-Title": settings.OPENROUTER_TITLE,
+                    },
+                )
+            except Exception as e:
+                logger.warning(
+                    "⚠️ OpenRouter no disponible para modelo '%s': %s. Usando fallback.",
+                    model, e,
+                )
+        else:
+            logger.warning(
+                "⚠️ OPENROUTER_API_KEY no configurada. Usando fallback MockAIProvider."
+            )
+
+        return FallbackAIWrapper(primary=primary, fallback=self.fallback_ai)
+
+    # ═══════════════════════════════════════════════
+    # Research Module
+    # ═══════════════════════════════════════════════
 
     def _init_research(self):
         """Inicializa módulo Research (descubrimiento + scheduler)."""
@@ -143,74 +290,14 @@ class Container:
         logger.info("📰 Research module initialized (scheduler: %s)",
                      "ON" if self.scheduler_config.is_enabled() else "OFF")
 
-    def _init_ai_providers(self):
-        """Inicializa proveedores de IA."""
-        self.ai_provider = self._create_primary_ai()
-        self.fallback_ai = MockAIProvider()
-
-    def _create_primary_ai(self):
-        """
-        Crea el proveedor de IA principal según configuración.
-
-        Orden de prioridad:
-        1. OpenRouter (default) — una API key para todos los modelos
-        2. OpenAI directo — si se configura explícitamente
-        3. MockAIProvider — fallback para tests o desarrollo offline
-
-        Para agregar un proveedor directo (Anthropic, Gemini, etc.):
-        1. Creá el provider en infrastructure/ai/
-        2. Agregá un elif acá
-        3. Listo — OCP respetado ✅
-        """
-        provider = settings.AI_PROVIDER
-
-        # ── OpenRouter (PRIMARIO) ──
-        if provider == "openrouter":
-            api_key = settings.OPENROUTER_API_KEY or settings.OPENAI_API_KEY
-            if api_key:
-                try:
-                    return OpenRouterProvider(
-                        api_key=api_key,
-                        model=settings.OPENROUTER_MODEL,
-                        temperature=settings.OPENROUTER_TEMPERATURE,
-                        max_tokens=settings.OPENROUTER_MAX_TOKENS,
-                        extra_headers={
-                            "HTTP-Referer": settings.OPENROUTER_REFERER,
-                            "X-Title": settings.OPENROUTER_TITLE,
-                        },
-                    )
-                except Exception as e:
-                    logger.warning(f"⚠️ OpenRouter no disponible: {e}. Usando fallback.")
-                    return MockAIProvider()
-
-            logger.warning("⚠️ OPENROUTER_API_KEY no configurada. Usando fallback.")
-            return MockAIProvider()
-
-        # ── OpenAI Directo ──
-        if provider == "openai":
-            try:
-                return OpenAICompatibleProvider(
-                    api_key=settings.OPENAI_API_KEY,
-                    model=settings.OPENAI_MODEL,
-                    base_url=settings.OPENAI_BASE_URL,
-                    temperature=settings.OPENAI_TEMPERATURE,
-                    max_tokens=settings.OPENAI_MAX_TOKENS,
-                    provider_name="openai-direct",
-                )
-            except Exception as e:
-                logger.warning(f"⚠️ OpenAI no disponible: {e}. Usando fallback.")
-                return MockAIProvider()
-
-        logger.info(f"Proveedor '{provider}' no implementado, usando fallback")
-        return MockAIProvider()
+    # ═══════════════════════════════════════════════
+    # Use Cases
+    # ═══════════════════════════════════════════════
 
     def _init_use_cases(self):
         """Inicializa casos de uso con todas las dependencias."""
-        # El AIProvider primario + fallback envuelto
-        ai = self._create_fallback_ai_wrapper()
-
         self.generate_content = GenerateContentUseCase(
-            ai_provider=ai,
+            ai_provider=self._ai_research,
             tts_provider=self.tts_provider,
             video_renderer=self.video_renderer,
             repository=self.repository,
@@ -230,58 +317,3 @@ class Container:
             repository=self.repository,
             cache=self.cache,
         )
-
-    def _create_fallback_ai_wrapper(self):
-        """
-        Crea wrapper que intenta proveedor primario y cae a fallback.
-        
-        Esto implementa el patrón Chain of Responsibility
-        sin modificar los providers individuales (OCP ✅).
-        """
-        primary = self.ai_provider
-        fallback = self.fallback_ai
-
-        class FallbackAIWrapper:
-            """Wrapper que intenta primario → fallback."""
-
-            @property
-            def name(self) -> str:
-                return f"{primary.name}+{fallback.name}"
-
-            @property
-            def available(self) -> bool:
-                return True
-
-            async def generate(self, prompt: str, **kwargs) -> str:
-                try:
-                    if primary.available:
-                        return await primary.generate(prompt, **kwargs)
-                except Exception as e:
-                    logger.warning(f"⚠️ {primary.name} falló: {e}. Usando fallback.")
-                return await fallback.generate(prompt, **kwargs)
-
-            async def generate_json(self, prompt: str, **kwargs) -> dict:
-                try:
-                    if primary.available:
-                        return await primary.generate_json(prompt, **kwargs)
-                except Exception as e:
-                    logger.warning(f"⚠️ {primary.name} falló (json): {e}. Usando fallback.")
-                return await fallback.generate_json(prompt, **kwargs)
-
-            async def generate_script(self, idea, duration=45, tone="educational"):
-                """Genera script: intenta primario → fallback."""
-                if hasattr(primary, 'generate_script'):
-                    try:
-                        if primary.available:
-                            return await primary.generate_script(
-                                idea=idea, duration=duration, tone=tone
-                            )
-                    except Exception as e:
-                        logger.warning(
-                            f"⚠️ {primary.name} falló (script): {e}. Usando fallback."
-                        )
-                return await fallback.generate_script(
-                    idea=idea, duration=duration, tone=tone
-                )
-
-        return FallbackAIWrapper()

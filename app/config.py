@@ -2,6 +2,9 @@
 AI Shorts System - Configuration
 ================================
 Variables globales y configuración del sistema.
+
+Único proveedor de IA: OpenRouter (https://openrouter.ai)
+Los modelos se configuran via variables de entorno, NUNCA hardcodeados.
 """
 
 import os
@@ -34,17 +37,16 @@ class Settings:
     OUTPUT_DIR: Path = ASSETS_DIR / "output"
     
     # ═══════════════════════════════════════════════
-    # API Keys
+    # OpenRouter — Único proveedor de IA
     # ═══════════════════════════════════════════════
-
-    # ── OpenRouter (PROVIDER PRIMARIO) ──
-    # Usá OpenRouter como proxy para acceder a múltiples modelos
+    # OpenRouter permite acceder a OpenAI, Anthropic, Google, Mistral, etc.
     # con UNA sola API key. Registrate en: https://openrouter.ai/keys
     OPENROUTER_API_KEY: Optional[str] = field(
         default_factory=lambda: os.getenv("OPENROUTER_API_KEY")
     )
     OPENROUTER_MODEL: str = field(
-        default_factory=lambda: os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
+        default_factory=lambda: os.getenv("OPENROUTER_MODEL")
+        or os.getenv("DEFAULT_MODEL", "openai/gpt-4o-mini")
     )
     OPENROUTER_BASE_URL: str = field(
         default_factory=lambda: os.getenv(
@@ -62,35 +64,28 @@ class Settings:
         default_factory=lambda: os.getenv("OPENROUTER_TITLE", "AI Shorts System")
     )
 
-    # ── OpenAI Directo (FALLBACK / provider directo) ──
-    # Solo necesario si NO usás OpenRouter.
-    OPENAI_API_KEY: Optional[str] = field(
-        default_factory=lambda: os.getenv("OPENAI_API_KEY")
+    # ── Modelo por defecto (fallback para todos los casos de uso) ──
+    DEFAULT_MODEL: str = field(
+        default_factory=lambda: os.getenv("DEFAULT_MODEL", "openai/gpt-4o-mini")
     )
-    OPENAI_MODEL: str = field(
-        default_factory=lambda: os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-    )
-    OPENAI_BASE_URL: Optional[str] = field(
-        default_factory=lambda: os.getenv("OPENAI_BASE_URL")
-    )
-    OPENAI_TEMPERATURE: float = 0.8
-    OPENAI_MAX_TOKENS: int = 2000
 
-    # ── Anthropic Directo (provider directo opcional) ──
-    ANTHROPIC_API_KEY: Optional[str] = field(
-        default_factory=lambda: os.getenv("ANTHROPIC_API_KEY")
+    # ── Modelos específicos por caso de uso ──
+    # Si un modelo específico no está configurado, usa DEFAULT_MODEL
+    MODEL_RESEARCH: str = field(
+        default_factory=lambda: os.getenv("MODEL_RESEARCH", "")
     )
-    ANTHROPIC_MODEL: str = "claude-haiku-4-20250514"
-    ANTHROPIC_TEMPERATURE: float = 0.8
-    ANTHROPIC_MAX_TOKENS: int = 2000
-
-    # ── Gemini Directo (provider directo opcional) ──
-    GEMINI_API_KEY: Optional[str] = field(
-        default_factory=lambda: os.getenv("GEMINI_API_KEY")
+    MODEL_SCORING: str = field(
+        default_factory=lambda: os.getenv("MODEL_SCORING", "")
     )
-    GEMINI_MODEL: str = "gemini-2.0-flash-lite-001"
-    GEMINI_TEMPERATURE: float = 0.8
-    GEMINI_MAX_TOKENS: int = 2000
+    MODEL_SCRIPT: str = field(
+        default_factory=lambda: os.getenv("MODEL_SCRIPT", "")
+    )
+    MODEL_TITLE: str = field(
+        default_factory=lambda: os.getenv("MODEL_TITLE", "")
+    )
+    MODEL_SUMMARY: str = field(
+        default_factory=lambda: os.getenv("MODEL_SUMMARY", "")
+    )
 
     # ── Otras APIs ──
     ELEVENLABS_API_KEY: Optional[str] = field(
@@ -106,15 +101,6 @@ class Settings:
         default_factory=lambda: os.getenv("NEWS_API_KEY")
     )
 
-    # ═══════════════════════════════════════════════
-    # Proveedor activo
-    # ═══════════════════════════════════════════════
-    # Determina qué proveedor usa el Composition Root.
-    # Valores: "openrouter" (default), "openai", "anthropic", "gemini", "mock"
-    AI_PROVIDER: str = field(
-        default_factory=lambda: os.getenv("AI_PROVIDER", "openrouter")
-    )
-    
     # Configuración de TTS
     TTS_PROVIDER: str = "elevenlabs"  # "elevenlabs" o "azure"
     TTS_VOICE_ID: str = "21m00Tcm4TlvDq8ikWAM"  # Rachel (español)
@@ -236,33 +222,15 @@ class Settings:
     
     def validate(self) -> bool:
         """
-        Valida que las configuraciones requeridas estén presentes
-        según el proveedor de IA activo.
+        Valida que la configuración requerida esté presente.
         
-        - "openrouter" → OPENROUTER_API_KEY
-        - "openai"     → OPENAI_API_KEY
-        - "anthropic"  → ANTHROPIC_API_KEY
-        - "gemini"     → GEMINI_API_KEY
-        - "mock"       → no requiere API key
+        OpenRouter es el ÚNICO proveedor de IA.
+        Se requiere OPENROUTER_API_KEY.
         """
-        provider_key_map = {
-            "openrouter": "OPENROUTER_API_KEY",
-            "openai": "OPENAI_API_KEY",
-            "anthropic": "ANTHROPIC_API_KEY",
-            "gemini": "GEMINI_API_KEY",
-            "mock": None,
-        }
-        
-        required_key = provider_key_map.get(self.AI_PROVIDER)
-        if required_key is None:
-            # mock provider o desconocido — no validamos API key
-            return True
-        
-        value = getattr(self, required_key, None)
-        if not value:
+        if not self.OPENROUTER_API_KEY:
             raise ValueError(
-                f"Falta configuración requerida: {required_key} "
-                f"(para provider activo: {self.AI_PROVIDER})"
+                "Falta configuración requerida: OPENROUTER_API_KEY "
+                "— registrate en https://openrouter.ai/keys"
             )
         
         return True
