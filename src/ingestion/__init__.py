@@ -1,0 +1,1 @@
+"""Ingestion Bounded Context."""
