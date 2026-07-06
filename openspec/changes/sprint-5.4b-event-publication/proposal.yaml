@@ -1,0 +1,110 @@
+change_id: sprint-5.4b-event-publication
+title: "Sprint 5.4B — Domain Event Publication (Post-Commit) en Ingestion BC"
+
+intent: >
+  Sprint 5.4A implementó SQLAlchemyUnitOfWork con event collection (recolecta eventos
+  de aggregate roots post-commit pero NO los publica). Sprint 5.4B cierra el ciclo:
+  publica los eventos colectados a través de un EventPublisher, integrado en el mismo
+  commit() del UoW. Se implementa como in-memory publisher (sin IO externa, sin Outbox)
+  preparado para evolución futura hacia Outbox Pattern. Se mueve el EventPublisher Protocol
+  de unit_of_work.py a su propio módulo (event_publisher.py) para que sea el contrato
+  compartido entre infraestructura de persistencia y publishers concretos.
+
+scope:
+  in:
+    - Crear SQLAlchemyEventPublisher en
+      src/ingestion/infrastructure/event_publisher.py
+    - Implementa EventPublisher Protocol: publish() y publish_many()
+    - In-memory: almacena eventos en una lista (sin Kafka/RabbitMQ/Redis)
+    - NO Outbox Pattern — preparado para interfaz compatible
+    - Mover EventPublisher Protocol de unit_of_work.py a event_publisher.py
+    - unit_of_work.py importa EventPublisher desde event_publisher.py
+    - commit() llama self._event_publisher.publish_many(self._collected_events)
+      después de _collect_events()
+    - _collected_events = [] después de publicación exitosa
+    - Si event_publisher es None → skip publicación (backward compatible)
+    - Failure policy:
+        - Caso A: commit SQL falla → rollback, NO publish (ya implementado)
+        - Caso B: publish_many() falla → commit YA HECHO, NO rollback, propaga PersistenceError
+    - Event ordering preservado (list, no set)
+    - Tests:
+        - publish() almacena 1 evento en memoria
+        - publish_many() almacena múltiples eventos en orden
+        - Integration: register_modified + commit → publisher recibe eventos
+        - Integration: commit falla → publisher NO llamado
+        - Integration: publish_many falla → commit NO se revierte, PersistenceError
+        - Idempotency: commit twice sin cambios → publisher llamado solo primera vez
+        - Event ordering: orden de inserción preservado
+    - NUEVOS tests NO rompen los 1587 existentes
+
+  out:
+    - ❌ Outbox Pattern (tabla event_outbox, worker)
+    - ❌ Kafka / RabbitMQ / Redis / Celery
+    - ❌ Background workers / async processing
+    - ❌ Integration Events (son Domain Events aún)
+    - ❌ Modificar Foundation, Domain, Application layers
+    - ❌ Modificar ORM Models
+    - ❌ Modificar repos SQLAlchemy
+    - ❌ Modificar tests existentes de Sprint 5.4A
+    - ❌ Monitoreo / alertas de fallos de publicación
+    - ❌ Retry logic (se intenta una vez, si falla se pierde — ver ADR-025)
+
+approach: >
+  1. Crear src/ingestion/infrastructure/event_publisher.py con:
+     - EventPublisher Protocol (migrado desde unit_of_work.py): define publish_many()
+       y se AGREGA publish() individual como parte del contrato.
+     - SQLAlchemyEventPublisher: implementa el Protocol, almacena eventos en
+       self.events: list[DomainEvent].
+  2. Actualizar unit_of_work.py:
+     - Eliminar la clase EventPublisher local.
+     - Importar EventPublisher desde ingestion.infrastructure.event_publisher.
+     - commit(): después de _collect_events(), si _event_publisher no es None,
+       llamar _event_publisher.publish_many(_collected_events).
+     - Capturar excepción en publish_many() y propagar PersistenceError.
+     - _collected_events.clear() tras publicación exitosa.
+     - Si publish_many() falla, NO hacer rollback (commit ya fue exitoso).
+  3. Wire en __init__.py de persistence si es necesario (exportar EventPublisher).
+  4. Tests en tests/ingestion/infrastructure/test_event_publisher.py:
+     - Tests unitarios para SQLAlchemyEventPublisher.
+     - Tests de integración con UoW (mockeando o con InMemoryEventPublisher).
+
+files_affected:
+  created:
+    - openspec/changes/sprint-5.4b-event-publication/proposal.yaml
+    - src/ingestion/infrastructure/event_publisher.py
+  modified:
+    - src/ingestion/infrastructure/persistence/unit_of_work.py
+      (mover import de EventPublisher, integrar publish_many en commit)
+  new_tests:
+    - tests/ingestion/infrastructure/persistence/test_event_publisher.py
+      (tests unitarios SQLAlchemyEventPublisher + integración con UoW)
+
+risks:
+  - risk: "Que publish_many() falle después de un commit exitoso y el evento
+      se pierda sin que el caller lo sepa."
+    mitigation: >
+      Se propaga PersistenceError con mensaje claro. Queda documentado
+      como limitación conocida (ADR-025 Opción A). Outbox en futuro sprint.
+  - risk: "Doble publicación si el caller llama commit() dos veces seguidas
+      sin nuevas modificaciones."
+    mitigation: >
+      _collected_events se limpia tras publicación. Si no hay nuevos
+      register_modified + commit, _collected_events está vacío →
+      publish_many([]) no hace nada. InMemoryEventPublisher ya maneja
+      lista vacía sin errores.
+  - risk: "Romper tests existentes de UoW que mockean _session.commit
+      pero no esperan que commit() ahora llame al publisher."
+    mitigation: >
+      Los tests existentes crean UoW sin event_publisher (default None),
+      por lo que la publicación se salta. Zero impacto en tests de 5.4A.
+  - risk: "Conflicto de naming entre SQLAlchemyEventPublisher (nuevo) e
+      InMemoryEventPublisher (existente en inmemory/)."
+    mitigation: >
+      Están en paquetes distintos (persistence vs inmemory). Ambos
+      implementan el mismo Protocol. No hay colisión.
+
+dependencies: >
+  Sprint 5.4A (unit_of_work.py con _collected_events, _event_publisher storage,
+  EventPublisher Protocol stub). ADR-025 (Post-Commit Hooks aprobado).
+  Foundation/Domain/Application FROZEN — no se modifican.
+  DomainEvent y AggregateRoot ya existen y están estables.

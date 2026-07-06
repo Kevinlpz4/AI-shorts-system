@@ -9,7 +9,8 @@ These implementations are:
     - Deterministic: no external dependencies.
     - Not thread-safe: no locking or atomic operations.
     - Volatile: data is lost when the process exits.
-    - LSP-compliant: they are drop-in replacements for the real repositories.
+    - LSP-compliant: they behave identically to the SQLAlchemy implementations
+      in terms of exceptions, uniqueness checks, and atomicity guarantees.
 """
 
 from __future__ import annotations
@@ -28,9 +29,9 @@ from ingestion.domain.entities.ids import (
 from ingestion.domain.entities.news_source import NewsSource
 from ingestion.domain.entities.raw_article import RawArticle
 from ingestion.domain.entities.topic import Topic
-from ingestion.domain.exceptions import InvalidStateError
 from ingestion.domain.exceptions.errors import IngestionErrorCode
 from ingestion.domain.value_objects.article_url import ArticleUrl
+from ingestion.infrastructure.persistence.exceptions import DuplicateEntityError
 
 
 class InMemoryNewsSourceRepository:
@@ -43,7 +44,17 @@ class InMemoryNewsSourceRepository:
         self._sources: dict[str, NewsSource] = {}
 
     def save(self, source: NewsSource) -> None:
-        """Persiste un NewsSource (crea o actualiza)."""
+        """Persiste un NewsSource (crea o actualiza).
+
+        Raises:
+            DuplicateEntityError: Si ya existe otro source con el mismo nombre.
+        """
+        # LSP: validar unicidad de name (excluyéndonos en update)
+        for sid, existing in self._sources.items():
+            if existing.name == source.name and sid != str(source.id):
+                raise DuplicateEntityError(
+                    "NewsSource", "name", source.name,
+                )
         self._sources[str(source.id)] = source
 
     def find_by_id(self, id: SourceId) -> Result[NewsSource]:
@@ -93,7 +104,23 @@ class InMemoryFeedRepository:
         self._feeds: dict[str, Feed] = {}
 
     def save(self, feed: Feed) -> None:
-        """Persiste un Feed (crea o actualiza)."""
+        """Persiste un Feed (crea o actualiza).
+
+        Raises:
+            DuplicateEntityError: Si ya existe otro feed con el mismo
+                source_id+url.
+        """
+        # LSP: validar unicidad de (source_id, url) — excluyéndonos en update
+        for fid, existing in self._feeds.items():
+            if (
+                existing.source_id == feed.source_id
+                and existing.url == feed.url
+                and fid != str(feed.id)
+            ):
+                raise DuplicateEntityError(
+                    "Feed", "source_id+url",
+                    f"{feed.source_id}+{feed.url}",
+                )
         self._feeds[str(feed.id)] = feed
 
     def find_by_id(self, id: FeedId) -> Result[Feed]:
@@ -158,49 +185,68 @@ class InMemoryRawArticleRepository:
 
     Stores articles in a ``dict[str, RawArticle]`` keyed by ``str(article.id)``.
 
-    Duplicate detection:
-        - ``save()`` raises ``InvalidStateError`` with code ``DUPLICATE_ARTICLE``
-          if an article with the same ``external_id + feed_id`` or
-          ``content_hash + feed_id`` already exists.
+    LSP: comportamiento idéntico a SQLAlchemyRawArticleRepository:
+    - ``save()`` y ``save_batch()`` lanzan ``DuplicateEntityError`` si se
+      viola una constraint de unicidad.
+    - ``save_batch()`` es atómico: o se guardan TODOS o NINGUNO.
     """
 
     def __init__(self) -> None:
         self._articles: dict[str, RawArticle] = {}
 
-    def save(self, article: RawArticle) -> None:
-        """Persiste un RawArticle (siempre es creación, nunca actualización).
+    def _check_duplicate(self, article: RawArticle) -> None:
+        """Verifica si el artículo viola alguna constraint de unicidad.
 
         Raises:
-            InvalidStateError: Si ya existe un artículo con el mismo
-                external_id+feed_id o content_hash+feed_id.
+            DuplicateEntityError: Si ya existe con mismo external_id+feed_id
+                o content_hash+feed_id.
         """
-        # Verificar duplicados por external_id + feed_id
         for existing in self._articles.values():
             if (
                 existing.feed_id == article.feed_id
                 and existing.external_id == article.external_id
             ):
-                raise InvalidStateError(
-                    f"DUPLICATE_ARTICLE: Article with external_id "
-                    f"'{article.external_id}' already exists in feed "
-                    f"'{article.feed_id}'"
+                raise DuplicateEntityError(
+                    "RawArticle",
+                    "external_id/content_hash",
+                    f"{article.external_id}/{article.content_hash}",
                 )
             if (
                 existing.feed_id == article.feed_id
                 and existing.content_hash == article.content_hash
             ):
-                raise InvalidStateError(
-                    f"DUPLICATE_ARTICLE: Article with content_hash "
-                    f"'{article.content_hash}' already exists in feed "
-                    f"'{article.feed_id}'"
+                raise DuplicateEntityError(
+                    "RawArticle",
+                    "external_id/content_hash",
+                    f"{article.external_id}/{article.content_hash}",
                 )
 
+    def save(self, article: RawArticle) -> None:
+        """Persiste un RawArticle (siempre es creación).
+
+        Raises:
+            DuplicateEntityError: Si ya existe un artículo con el mismo
+                external_id+feed_id o content_hash+feed_id.
+        """
+        self._check_duplicate(article)
         self._articles[str(article.id)] = article
 
     def save_batch(self, articles: list[RawArticle]) -> None:
-        """Persiste múltiples RawArticles en una operación atómica."""
+        """Persiste múltiples RawArticles atómicamente.
+
+        LSP: O todos se guardan o ninguno. Validación previa a la inserción
+        para garantizar atomicidad, análogo a SQLAlchemy que falla todo
+        el batch en el primer IntegrityError durante flush().
+
+        Raises:
+            DuplicateEntityError: Si algún artículo es duplicado.
+        """
+        # Fase 1: validación atómica (si algo falla, nada se persiste)
         for article in articles:
-            self.save(article)
+            self._check_duplicate(article)
+        # Fase 2: inserción (todos son válidos)
+        for article in articles:
+            self._articles[str(article.id)] = article
 
     def find_by_id(self, id: RawArticleId) -> Result[RawArticle]:
         """Busca un RawArticle por su identidad única."""
@@ -270,7 +316,17 @@ class InMemoryCategoryRepository:
         self._categories: dict[str, Category] = {}
 
     def save(self, category: Category) -> None:
-        """Persiste una Category (crea o actualiza)."""
+        """Persiste una Category (crea o actualiza).
+
+        Raises:
+            DuplicateEntityError: Si ya existe otra categoría con el mismo slug.
+        """
+        # LSP: validar unicidad de slug (excluyéndonos en update)
+        for cid, existing in self._categories.items():
+            if existing.slug == category.slug and cid != str(category.id):
+                raise DuplicateEntityError(
+                    "Category", "slug", category.slug or "",
+                )
         self._categories[str(category.id)] = category
 
     def find_by_id(self, id: CategoryId) -> Result[Category]:
@@ -330,7 +386,17 @@ class InMemoryTopicRepository:
         self._topics: dict[str, Topic] = {}
 
     def save(self, topic: Topic) -> None:
-        """Persiste un Topic (crea o actualiza)."""
+        """Persiste un Topic (crea o actualiza).
+
+        Raises:
+            DuplicateEntityError: Si ya existe otro topic con el mismo nombre.
+        """
+        # LSP: validar unicidad de name (excluyéndonos en update)
+        for tid, existing in self._topics.items():
+            if existing.name == topic.name and tid != str(topic.id):
+                raise DuplicateEntityError(
+                    "Topic", "name", topic.name,
+                )
         self._topics[str(topic.id)] = topic
 
     def find_by_id(self, id: TopicId) -> Result[Topic]:

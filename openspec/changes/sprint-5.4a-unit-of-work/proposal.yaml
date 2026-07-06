@@ -1,0 +1,105 @@
+change_id: sprint-5.4a-unit-of-work
+title: "Sprint 5.4A — SQLAlchemyUnitOfWork + Session Lifecycle"
+
+intent: >
+  Hoy cada test y/o servicio crea su propia Session y maneja commit/rollback
+  ad-hoc. No hay un punto central que orqueste transacciones. Esto produce:
+  (1) imposibilidad de compartir Session entre repos dentro de una misma
+  operación, (2) riesgo de no hacer rollback ante errores, (3) duplicación
+  del ciclo commit/rollback/close en cada lugar que usa repos SQLAlchemy.
+  SQLAlchemyUnitOfWork resuelve esto dando un context manager que crea la
+  Session, la comparte entre los 5 repos, y ejecuta commit/rollback/close
+  con manejo automático de errores. Además, prepara la colección de eventos
+  de dominio post-commit para el Sprint 5.4B (publicación).
+
+scope:
+  in:
+    - Crear SQLAlchemyUnitOfWork en
+      src/ingestion/infrastructure/persistence/unit_of_work.py
+    - Implementar UnitOfWork Protocol desde
+      src/ingestion/application/ports/unit_of_work.py
+    - Session creada internamente en __enter__ (vía session_factory)
+    - Repositorios inyectados: NewsSourceRepo, FeedRepo, RawArticleRepo,
+      CategoryRepo, TopicRepo — todos con la MISMA Session
+    - commit() → session.commit()
+    - rollback() → session.rollback()
+    - close() → session.close()
+    - __exit__: rollback automático si exc_type != None + close siempre
+    - Event collection: después de commit(), recolectar eventos vía
+      pull_events() de los aggregate roots modificados (almacenar,
+      NO publicar)
+    - Tests:
+        - commit llamado exactamente 1 vez
+        - rollback en __exit__ con excepción
+        - close siempre llamado (incluso tras error)
+        - Misma Session compartida entre repos
+        - Context manager behavior (entra/sale)
+        - Event collection no rompe tests existentes
+    - Actualizar conftest.py: fixture sqlite_session usa UoW en vez de
+      crear Session directa (donde corresponda)
+    - NUEVOS tests NO rompen los 1568 existentes
+
+  out:
+    - ❌ Publicación de eventos post-commit (Sprint 5.4B)
+    - ❌ EventPublisher (Sprint 5.4B)
+    - ❌ Optimistic locking / version_id_col (Sprint 5.4C)
+    - ❌ Wiring con FastAPI / DI / Composition Root
+    - ❌ Alembic
+    - ❌ Outbox pattern
+    - ❌ Modificar Foundation, Domain, Application layers
+    - ❌ Modificar repos SQLAlchemy (ya reciben Session por constructor)
+
+approach: >
+  1. Crear SQLAlchemyUnitOfWork que recibe un session_factory en __init__
+     y un conjunto opcional de repos. En __enter__ crea Session, construye
+     los 5 repos SQLAlchemy con esa Session, y retorna self.
+  2. Exponer atributos .news_sources, .feeds, .raw_articles, .categories,
+     .topics para que los servicios accedan a los repos dentro del bloque.
+  3. commit() llama session.commit() + recolecta eventos llamando
+     pull_events() sobre los aggregate roots (solo almacenar en lista).
+  4. rollback() llama session.rollback().
+  5. __exit__: si hubo excepción → rollback(); siempre → close();
+     nunca traga la excepción.
+  6. Event collection: atributo _collected_events: list[DomainEvent] que
+     se llena post-commit. NO se publica — solo colección.
+  7. Tests con fixture engine+tables (ya existentes) y Session real
+     SQLite in-memory.
+
+files_affected:
+  created:
+    - openspec/changes/sprint-5.4a-unit-of-work/proposal.yaml
+    - src/ingestion/infrastructure/persistence/unit_of_work.py
+  modified:
+    - src/ingestion/infrastructure/persistence/__init__.py
+      (exportar SQLAlchemyUnitOfWork)
+    - tests/ingestion/infrastructure/conftest.py
+      (eventualmente fixture sqlite_session usa UoW)
+  new_tests:
+    - tests/ingestion/infrastructure/test_unit_of_work.py
+
+risks:
+  - risk: "Que los servicios de aplicación (SourceService, FeedService,
+      ArticleService) usen UnitOfWork y esperen repos por atributos
+      específicos — la interfaz debe coincidir con lo que InMemoryUoW
+      expone."
+    mitigation: Usar el mismo Protocol (UnitOfWork de ports) y exponer
+      los mismos atributos que InMemoryUnitOfWork.
+  - risk: "Que session.close() falle si ya se llamó rollback() o commit()
+      y la session está en estado inconsistente."
+    mitigation: Llamar session.close() en finally block dentro de
+      __exit__, independientemente de si hubo rollback.
+  - risk: "Que eventos se pierdan si el aggregate fue modificado pero
+      no se llama pull_events() después de commit."
+    mitigation: La recolección ocurre DENTRO de commit(), no es
+      responsabilidad del caller.
+  - risk: "Romper tests existentes que crean su propia Session y esperan
+      comportamiento específico."
+    mitigation: Los tests existentes de repos (test_repository_contracts)
+      ya reciben session via fixture. Se actualiza conftest con cuidado
+      para que sigan pasando sin cambios en los tests mismos.
+
+dependencies: >
+  Ninguna. Los 5 repos SQLAlchemy ya reciben Session por constructor
+  (Sprint 5.3.6). La capa de Persistence Foundation tiene create_session_factory.
+  El UnitOfWork Protocol existe en application/ports. Es puramente
+  secuencial sobre lo ya construido.

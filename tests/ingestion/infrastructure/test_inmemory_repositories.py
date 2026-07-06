@@ -29,8 +29,8 @@ from ingestion.domain.entities.ids import (
 from ingestion.domain.entities.news_source import NewsSource
 from ingestion.domain.entities.raw_article import RawArticle
 from ingestion.domain.entities.topic import Topic
-from ingestion.domain.exceptions import InvalidStateError
 from ingestion.domain.exceptions.errors import IngestionErrorCode
+from ingestion.infrastructure.persistence.exceptions import DuplicateEntityError
 from ingestion.domain.value_objects.article_title import ArticleTitle
 from ingestion.domain.value_objects.article_url import ArticleUrl
 from ingestion.domain.value_objects.category_name import CategoryName
@@ -238,8 +238,8 @@ class TestInMemoryFeedRepository:
         """find_by_source debe retornar feeds de un source."""
         repo = InMemoryFeedRepository()
         sid = SourceId.generate()
-        repo.save(make_feed(source_id=sid, label="Feed1"))
-        repo.save(make_feed(source_id=sid, label="Feed2"))
+        repo.save(make_feed(source_id=sid, url="https://example.com/feed1", label="Feed1"))
+        repo.save(make_feed(source_id=sid, url="https://example.com/feed2", label="Feed2"))
         other_sid = SourceId.generate()
         repo.save(make_feed(source_id=other_sid, label="Other"))
 
@@ -273,9 +273,9 @@ class TestInMemoryFeedRepository:
         """find_active_by_source debe retornar solo feeds activos."""
         repo = InMemoryFeedRepository()
         sid = SourceId.generate()
-        repo.save(make_feed(source_id=sid, label="Active1", is_active=True))
-        repo.save(make_feed(source_id=sid, label="Active2", is_active=True))
-        repo.save(make_feed(source_id=sid, label="Inactive", is_active=False))
+        repo.save(make_feed(source_id=sid, url="https://example.com/active1", label="Active1", is_active=True))
+        repo.save(make_feed(source_id=sid, url="https://example.com/active2", label="Active2", is_active=True))
+        repo.save(make_feed(source_id=sid, url="https://example.com/inactive", label="Inactive", is_active=False))
 
         actives = repo.find_active_by_source(sid)
         assert len(actives) == 2
@@ -303,9 +303,9 @@ class TestInMemoryFeedRepository:
         """count_active_by_source retorna conteo correcto."""
         repo = InMemoryFeedRepository()
         sid = SourceId.generate()
-        repo.save(make_feed(source_id=sid, is_active=True))
-        repo.save(make_feed(source_id=sid, is_active=True))
-        repo.save(make_feed(source_id=sid, is_active=False))
+        repo.save(make_feed(source_id=sid, url="https://example.com/active1", is_active=True))
+        repo.save(make_feed(source_id=sid, url="https://example.com/active2", is_active=True))
+        repo.save(make_feed(source_id=sid, url="https://example.com/inactive", is_active=False))
         assert repo.count_active_by_source(sid) == 2
         assert repo.count_active_by_source(SourceId.generate()) == 0
 
@@ -440,7 +440,7 @@ class TestInMemoryRawArticleRepository:
         assert repo.count_by_feed(FeedId.generate()) == 0
 
     def test_duplicate_external_id_raises_error(self) -> None:
-        """save debe lanzar InvalidStateError si external_id+feed_id duplicado."""
+        """save debe lanzar DuplicateEntityError si external_id+feed_id duplicado."""
         repo = InMemoryRawArticleRepository()
         fid = FeedId.generate()
         repo.save(
@@ -451,7 +451,7 @@ class TestInMemoryRawArticleRepository:
                 url="https://example.com/article-a",
             )
         )
-        with pytest.raises(InvalidStateError) as excinfo:
+        with pytest.raises(DuplicateEntityError):
             repo.save(
                 make_article(
                     feed_id=fid,
@@ -460,10 +460,9 @@ class TestInMemoryRawArticleRepository:
                     url="https://example.com/article-b",
                 )
             )
-        assert "DUPLICATE_ARTICLE" in str(excinfo.value)
 
     def test_duplicate_content_hash_raises_error(self) -> None:
-        """save debe lanzar InvalidStateError si content_hash+feed_id duplicado."""
+        """save debe lanzar DuplicateEntityError si content_hash+feed_id duplicado."""
         repo = InMemoryRawArticleRepository()
         fid = FeedId.generate()
         repo.save(
@@ -474,7 +473,7 @@ class TestInMemoryRawArticleRepository:
                 url="https://example.com/article-c",
             )
         )
-        with pytest.raises(InvalidStateError) as excinfo:
+        with pytest.raises(DuplicateEntityError):
             repo.save(
                 make_article(
                     feed_id=fid,
@@ -483,7 +482,6 @@ class TestInMemoryRawArticleRepository:
                     url="https://example.com/article-d",
                 )
             )
-        assert "DUPLICATE_ARTICLE" in str(excinfo.value)
 
     def test_save_batch(self) -> None:
         """save_batch debe guardar múltiples artículos."""

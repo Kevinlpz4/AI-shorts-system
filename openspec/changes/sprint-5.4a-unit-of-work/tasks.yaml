@@ -1,0 +1,792 @@
+change_id: sprint-5.4a-unit-of-work
+title: "Sprint 5.4A — SQLAlchemyUnitOfWork + Session Lifecycle"
+phase: tasks
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Dependencies
+# ═══════════════════════════════════════════════════════════════════════════════
+# T1 → T2 → T3 → T4...T10 (parallel after T3) → T11
+#
+# Orden de ejecución:
+#   1. T1 (clase principal)
+#   2. T2 (__init__.py export)
+#   3. T3 (fixtures de test)
+#   4. T4...T10 (tests — sin dependencias entre sí, dependen de T1,T2,T3)
+#   5. T11 (regression — depende de todos los anteriores)
+
+tasks:
+  # ══════════════════════════════════════════════════════════════════════════════
+  # T1: SQLAlchemyUnitOfWork class
+  # ══════════════════════════════════════════════════════════════════════════════
+  - id: T1
+    title: "Crear SQLAlchemyUnitOfWork class"
+    file: src/ingestion/infrastructure/persistence/unit_of_work.py
+    action: create
+    description: >
+      Implementar la clase `SQLAlchemyUnitOfWork` que gestiona el ciclo de vida
+      completo de una SQLAlchemy Session: creación en __enter__, compartición
+      entre 5 repos, commit/rollback/close, y colección de eventos post-commit.
+
+    details:
+      imports:
+        - "from __future__ import annotations"
+        - "from collections.abc import Callable"
+        - "from typing import Protocol, Self"
+        - "from sqlalchemy.orm import Session"
+        - "from sqlalchemy.exc import SQLAlchemyError"
+        - "from foundation.base.aggregate_root import AggregateRoot"
+        - "from foundation.events.domain_event import DomainEvent"
+        - "from ingestion.infrastructure.persistence.exceptions import PersistenceError"
+        - "from ingestion.infrastructure.persistence.repositories import ("
+        - "    SQLAlchemyCategoryRepository,"
+        - "    SQLAlchemyFeedRepository,"
+        - "    SQLAlchemyNewsSourceRepository,"
+        - "    SQLAlchemyRawArticleRepository,"
+        - "    SQLAlchemyTopicRepository,"
+        - ")"
+
+      event_publisher_protocol:
+        code: |
+          class EventPublisher(Protocol):
+              """Stub Protocol — real implementation in Sprint 5.4B.
+              
+              Defines the contract for publishing collected domain events.
+              The UoW stores this reference in 5.4A but does NOT call it yet.
+              """
+              def publish_many(self, events: list[DomainEvent]) -> None: ...
+
+      class: SQLAlchemyUnitOfWork
+      docstring: >
+        SQLAlchemy-backed Unit of Work. Owns Session lifecycle, shares it
+        across 5 repos, manages commit/rollback/close, and collects domain
+        events after successful commit. Accepts optional EventPublisher
+        (not used until Sprint 5.4B).
+
+      __init__:
+        signature: >
+          "(self, session_factory: Callable[[], Session],
+          event_publisher: EventPublisher | None = None) -> None"
+        body:
+          - "self._session_factory = session_factory"
+          - "self._event_publisher = event_publisher  # stored for 5.4B, not used yet"
+          - "self._session: Session | None = None"
+          - >
+            self._modified_roots: set[AggregateRoot] = set()
+            (set — idempotent: same root registered N times appears once)
+          - "self._collected_events: list[DomainEvent] = []"
+          - >
+            self.news_sources: SQLAlchemyNewsSourceRepository | None = None
+            (idem para feeds, raw_articles, categories, topics — todos None)
+
+      __enter__:
+        signature: "(self) -> Self"
+        body:
+          - "self._session = self._session_factory()"
+          - >
+            Inicializar los 5 repos con self._session:
+            self.news_sources = SQLAlchemyNewsSourceRepository(self._session)
+            (idem para los otros 4)
+          - "return self"
+
+      __exit__:
+        signature: "(self, exc_type: object, exc_val: object, exc_tb: object) -> None"
+        body:
+          - "if exc_type is not None: self.rollback()"
+          - "self.close()"
+          - "return None  # explícito — nunca tragar excepción"
+
+      commit:
+        signature: "(self) -> None"
+        body:
+          - "if self._session is None: raise PersistenceError(...)"
+          - "try: self._session.commit()"
+          - "except SQLAlchemyError as exc: self._session.rollback(); raise PersistenceError(...) from exc"
+          - "self._collect_events()"
+
+      rollback:
+        signature: "(self) -> None"
+        body:
+          - "if self._session is not None: self._session.rollback()"
+
+      close:
+        signature: "(self) -> None"
+        body:
+          - "if self._session is not None: self._session.close(); self._session = None"
+
+      register_modified:
+        signature: "(self, root: AggregateRoot) -> None"
+        body:
+          - "self._modified_roots.add(root)"
+
+      _collect_events:
+        signature: "(self) -> None"
+        body:
+          - "for root in self._modified_roots: self._collected_events.extend(root.pull_events())"
+          - "self._modified_roots.clear()"
+
+      error_handling:
+        commit_sin_session: "PersistenceError('Cannot commit: no active session')"
+        commit_failure: "rollback session internamente, raise PersistenceError(f'Commit failed: {exc}')"
+        close_idempotente: "Si _session es None, no hacer nada"
+        rollback_idempotente: "Si _session es None, no hacer nada"
+        __exit__: "Nunca traga excepción — return None explícitamente"
+
+    verify:
+      - "Type-check con mypy — 0 errores"
+      - "Import desde el módulo funciona: from ingestion.infrastructure.persistence.unit_of_work import SQLAlchemyUnitOfWork"
+      - "Una instancia sin __enter__ tiene todos los repos = None"
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # T2: Exportar SQLAlchemyUnitOfWork desde __init__.py
+  # ══════════════════════════════════════════════════════════════════════════════
+  - id: T2
+    title: "Exportar SQLAlchemyUnitOfWork en persistence/__init__.py"
+    file: src/ingestion/infrastructure/persistence/__init__.py
+    action: modify
+    description: >
+      Agregar SQLAlchemyUnitOfWork a los imports y al __all__ del paquete
+      persistence, siguiendo el mismo patrón de los otros exports.
+
+    details:
+      import_to_add: >
+        Agregar en el bloque de imports (después de los repos imports,
+        antes de types):
+        from ingestion.infrastructure.persistence.unit_of_work import (
+            SQLAlchemyUnitOfWork,
+        )
+
+      __all__ entry_to_add: >
+        Agregar en __all__, después de los repos:
+        "SQLAlchemyUnitOfWork",
+
+      docstring_update: >
+        Actualizar el docstring del módulo para incluir:
+        - ``SQLAlchemyUnitOfWork`` — Unit of Work con Session lifecycle
+
+    verify:
+      - "from ingestion.infrastructure.persistence import SQLAlchemyUnitOfWork funciona"
+      - "SQLAlchemyUnitOfWork está en ingestion.infrastructure.persistence.__all__"
+      - "Imports existentes no rotos"
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # T3: Fixture `uow` en conftest.py
+  # ══════════════════════════════════════════════════════════════════════════════
+  - id: T3
+    title: "Agregar fixture `uow` en tests/ingestion/infrastructure/conftest.py"
+    file: tests/ingestion/infrastructure/conftest.py
+    action: modify
+    description: >
+      Agregar fixture `uow` que crea un SQLAlchemyUnitOfWork con el
+      sqlite_session_factory existente. Esta fixture depende de `tables`
+      para garantizar que el schema existe.
+
+    details:
+      fixture_uow:
+        code: |
+          @pytest.fixture
+          def uow(sqlite_session_factory, tables):
+              """Fresh SQLAlchemyUnitOfWork with SQLite in-memory + schema.
+
+              Usage::
+
+                  def test_something(uow):
+                      with uow:
+                          uow.news_sources.save(...)
+                          uow.commit()
+              """
+              from ingestion.infrastructure.persistence import SQLAlchemyUnitOfWork
+
+              return SQLAlchemyUnitOfWork(sqlite_session_factory)
+
+      placement: >
+        Agregar DESPUÉS del fixture `tables` (al final del archivo),
+        antes de la línea final en blanco. NO modificar fixtures existentes.
+
+      importante: >
+        La fixture devuelve la UoW SIN abrir el context manager. Cada test
+        debe hacer `with uow:` por su cuenta. Esto permite tests que verifican
+        el estado PRE-__enter__ (repos = None).
+
+    verify:
+      - "Fixture importable y usable"
+      - "Los 5 fixtures existentes (sqlite_engine, sqlite_session_factory, sqlite_session, engine, engine_session) siguen funcionando"
+      - "pytest tests/ingestion/infrastructure/conftest.py — no errors"
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # T4: Tests — UoW Creation (R1, 2 scenarios)
+  # ══════════════════════════════════════════════════════════════════════════════
+  - id: T4
+    title: "Tests — UoW Creation (R1, spec #1-#2)"
+    file: tests/ingestion/infrastructure/test_unit_of_work.py
+    action: create
+    depends_on: [T1, T2, T3]
+    description: >
+      Tests para R1: verificar que los repos son None antes de __enter__ y
+      que se inicializan correctamente después de __enter__.
+
+    details:
+      imports:
+        from __future__ import annotations
+        import pytest
+        from ingestion.infrastructure.persistence import SQLAlchemyUnitOfWork
+
+      test_R1_repos_none_before_enter:
+        scenario: "#1 — After init, repos are None"
+        code: |
+          def test_uow_repos_are_none_before_enter(uow):
+              """Repos MUST be None before __enter__ is called."""
+              assert uow.news_sources is None
+              assert uow.feeds is None
+              assert uow.raw_articles is None
+              assert uow.categories is None
+              assert uow.topics is None
+
+      test_R1_repos_initialized_after_enter:
+        scenario: "#2 — After __enter__, 5 repos initialized with Session"
+        code: |
+          def test_uow_creates_session_and_repos_on_enter(uow):
+              """__enter__ MUST create Session and init all 5 repos."""
+              with uow:
+                  assert uow.news_sources is not None
+                  assert uow.feeds is not None
+                  assert uow.raw_articles is not None
+                  assert uow.categories is not None
+                  assert uow.topics is not None
+
+    verify:
+      - "pytest tests/ingestion/infrastructure/test_unit_of_work.py::test_uow_repos_are_none_before_enter - PASS"
+      - "pytest tests/ingestion/infrastructure/test_unit_of_work.py::test_uow_creates_session_and_repos_on_enter - PASS"
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # T5: Tests — Commit lifecycle (R2, 3 scenarios)
+  # ══════════════════════════════════════════════════════════════════════════════
+  - id: T5
+    title: "Tests — Commit Lifecycle (R2, spec #3-#5)"
+    file: tests/ingestion/infrastructure/test_unit_of_work.py
+    depends_on: [T1, T2, T3]
+    description: >
+      Tests para R2: verificar que commit() llama session.commit() exactamente
+      1 vez, que recolecta eventos, y que falla con PersistenceError.
+
+    details:
+      imports_adicionales:
+        - "from unittest.mock import MagicMock, PropertyMock"
+        - "from sqlalchemy.exc import IntegrityError"
+        - "from ingestion.infrastructure.persistence.exceptions import PersistenceError"
+        - "from foundation.base.aggregate_root import AggregateRoot"
+        - "from foundation.events.domain_event import DomainEvent"
+
+      test_R2_commit_called_once:
+        scenario: "#3 — Happy path: commit() calls session.commit() exactly 1×"
+        code: |
+          def test_commit_calls_session_commit_once(uow):
+              """commit() MUST call session.commit() exactly once."""
+              with uow:
+                  uow._session.commit = MagicMock()  # type: ignore[method-assign]
+                  uow.commit()
+                  uow._session.commit.assert_called_once()
+
+      test_R2_commit_collects_events:
+        scenario: "#4 — Post-commit collects domain events"
+        code: |
+          def test_commit_collects_events(uow):
+              """commit() MUST collect events from registered roots after session.commit()."""
+              event = MagicMock(spec=DomainEvent)
+              root = MagicMock(spec=AggregateRoot)
+              root.pull_events.return_value = [event]
+
+              with uow:
+                  uow.register_modified(root)
+                  uow._session.commit = MagicMock()  # type: ignore[method-assign]
+                  uow.commit()
+
+              assert len(uow._collected_events) == 1
+              assert uow._collected_events[0] is event
+
+      test_R2_commit_failure_raises_persistence_error:
+        scenario: "#5 — Commit failure raises PersistenceError"
+        code: |
+          def test_commit_failure_raises_persistence_error(uow):
+              """When session.commit() fails, commit() MUST raise PersistenceError."""
+              with uow:
+                  uow._session.commit = MagicMock(  # type: ignore[method-assign]
+                      side_effect=IntegrityError("stmt", "params", "orig"),
+                  )
+                  with pytest.raises(PersistenceError, match="Commit failed"):
+                      uow.commit()
+
+    verify:
+      - "pytest tests/ingestion/infrastructure/test_unit_of_work.py -k 'test_commit' — 3 PASS"
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # T6: Tests — Rollback lifecycle (R3, 2 scenarios)
+  # ══════════════════════════════════════════════════════════════════════════════
+  - id: T6
+    title: "Tests — Rollback Lifecycle (R3, spec #6-#7)"
+    file: tests/ingestion/infrastructure/test_unit_of_work.py
+    depends_on: [T1, T2, T3]
+    description: >
+      Tests para R3: rollback explícito y auto-rollback en __exit__ con
+      excepción.
+
+    details:
+      imports_adicionales:
+        - "from unittest.mock import MagicMock"
+
+      test_R3_explicit_rollback:
+        scenario: "#6 — Explicit rollback calls session.rollback()"
+        code: |
+          def test_explicit_rollback(uow):
+              """rollback() MUST call session.rollback()."""
+              with uow:
+                  uow._session.rollback = MagicMock()  # type: ignore[method-assign]
+                  uow.rollback()
+                  uow._session.rollback.assert_called_once()
+
+      test_R3_auto_rollback_on_exception:
+        scenario: "#7 — __exit__ auto-rollbacks on exception"
+        code: |
+          def test_auto_rollback_on_exception(uow):
+              """__exit__ MUST call rollback() when an exception occurs."""
+              rollback_spy = None
+              try:
+                  with uow:
+                      uow._session.rollback = MagicMock()  # type: ignore[method-assign]
+                      rollback_spy = uow._session.rollback
+                      raise ValueError("boom")
+              except ValueError:
+                  pass
+
+              # __exit__ sets _session = None, so we must use saved reference
+              assert rollback_spy is not None
+              rollback_spy.assert_called_once()
+
+    verify:
+      - "pytest tests/ingestion/infrastructure/test_unit_of_work.py -k 'test_explicit_rollback or test_auto_rollback' — 2 PASS"
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # T7: Tests — Close lifecycle (R4, 3 scenarios)
+  # ══════════════════════════════════════════════════════════════════════════════
+  - id: T7
+    title: "Tests — Close Lifecycle (R4, spec #8-#10)"
+    file: tests/ingestion/infrastructure/test_unit_of_work.py
+    depends_on: [T1, T2, T3]
+    description: >
+      Tests para R4: close en salida normal, close después de error, y
+      close idempotente.
+
+    details:
+      imports_adicionales:
+        - "from unittest.mock import MagicMock"
+
+      test_R4_close_on_normal_exit:
+        scenario: "#8 — Normal __exit__ calls session.close()"
+        code: |
+          def test_close_called_on_normal_exit(uow):
+              """__exit__ MUST call session.close() when no exception."""
+              with uow:
+                  uow._session.close = MagicMock()  # type: ignore[method-assign]
+
+              uow._session.close.assert_called_once()
+
+      test_R4_close_on_error_exit:
+        scenario: "#9 — __exit__ with exception calls session.close() after rollback"
+        code: |
+          def test_close_called_on_error_exit(uow):
+              """__exit__ MUST call session.close() even when an exception occurs."""
+              try:
+                  with uow:
+                      uow._session.close = MagicMock()  # type: ignore[method-assign]
+                      raise ValueError("boom")
+              except ValueError:
+                  pass
+
+              uow._session.close.assert_called_once()
+
+      test_R4_close_idempotent:
+        scenario: "#10 — close() is idempotent"
+        code: |
+          def test_close_idempotent(uow):
+              """Calling close() twice MUST NOT raise an error."""
+              with uow:
+                  pass  # __exit__ calls close() once
+              # uow._session is now None — calling close() again should be safe
+              uow.close()  # second call — must not raise
+
+    verify:
+      - "pytest tests/ingestion/infrastructure/test_unit_of_work.py -k 'test_close' — 3 PASS"
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # T8: Tests — Context Manager (R5, 2 scenarios)
+  # ══════════════════════════════════════════════════════════════════════════════
+  - id: T8
+    title: "Tests — Context Manager (R5, spec #11-#12)"
+    file: tests/ingestion/infrastructure/test_unit_of_work.py
+    depends_on: [T1, T2, T3]
+    description: >
+      Tests para R5: with statement básico y UoWs anidados con Sessions
+      independientes.
+
+    details:
+      test_R5_basic_with:
+        scenario: "#11 — Basic with statement"
+        code: |
+          def test_basic_with_statement(uow):
+              """UoW MUST work as a context manager with accessible repos."""
+              with uow:
+                  # Session is alive, repos are accessible
+                  assert uow._session is not None
+                  assert uow.news_sources is not None
+                  # Session is active
+                  from sqlalchemy import text
+                  result = uow._session.execute(text("SELECT 1"))
+                  assert result.scalar() == 1
+
+              # After exit, session is closed
+              assert uow._session is None
+
+      test_R5_nested_uow:
+        scenario: "#12 — Two UoW instances have independent Sessions"
+        code: |
+          def test_nested_uows_have_independent_sessions(uow_factory):
+              """Each UoW instance MUST manage its own Session independently.
+
+              Uses uow_factory fixture (defined below) to create independent UoWs.
+              """
+              uow1 = uow_factory()
+              uow2 = uow_factory()
+
+              with uow1:
+                  with uow2:
+                      # Different Session objects
+                      assert uow1._session is not uow2._session
+                      # Both alive
+                      assert uow1._session is not None
+                      assert uow2._session is not None
+
+                  # uow2 exited — its session is closed
+                  assert uow2._session is None
+                  # uow1 still alive
+                  assert uow1._session is not None
+
+              # uow1 exited — its session is closed
+              assert uow1._session is None
+
+        nota: >
+          Para este test se necesita una fixture `uow_factory` adicional que
+          cree SQLAlchemyUnitOfWork(sqlite_session_factory) pero SIN tables
+          (o con tables compartido). Agregarla en T3 o directamente en el
+          test file.
+
+          Alternativa más simple: crear dos instancias de SQLAlchemyUnitOfWork
+          con el mismo session_factory dentro del test:
+
+          def test_nested_uows_have_independent_sessions(sqlite_session_factory, tables):
+              ...
+
+    verify:
+      - "pytest tests/ingestion/infrastructure/test_unit_of_work.py -k 'test_basic_with or test_nested_uow' — 2 PASS"
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # T9: Tests — Cross-Repo Session (R6, 2 scenarios)
+  # ══════════════════════════════════════════════════════════════════════════════
+  - id: T9
+    title: "Tests — Cross-Repo Session Consistency (R6, spec #13-#14)"
+    file: tests/ingestion/infrastructure/test_unit_of_work.py
+    depends_on: [T1, T2, T3]
+    description: >
+      Tests para R6: verificar que todos los repos comparten la misma Session
+      identity y que un flush en un repo es visible desde otro.
+
+    details:
+      imports_adicionales:
+        - "from unittest.mock import MagicMock"
+
+      test_R6_same_session_identity:
+        scenario: "#13 — All repos share the exact same Session"
+        code: |
+          def test_all_repos_share_same_session(uow):
+              """All 5 repos MUST share the exact same Session identity."""
+              with uow:
+                  assert uow.news_sources._session is uow.feeds._session
+                  assert uow.news_sources._session is uow.raw_articles._session
+                  assert uow.news_sources._session is uow.categories._session
+                  assert uow.news_sources._session is uow.topics._session
+
+      test_R9_session_identity_chain:
+        scenario: "#14 — Session identity chain across ALL 5 repos (R9)"
+        code: |
+          def test_session_identity_chain(uow):
+              """ALL 5 repos MUST share the exact same Session object.
+              
+              This is the FUNDAMENTAL purpose of the Unit of Work —
+              a single transaction identity across all repositories.
+              """
+              with uow:
+                  s = uow.news_sources._session
+                  assert s is uow.feeds._session
+                  assert s is uow.raw_articles._session
+                  assert s is uow.categories._session
+                  assert s is uow.topics._session
+
+      test_R6_flush_visibility:
+        scenario: "#14 — Uncommitted changes visible across repos via flush"
+        code: |
+          def test_flush_visibility_across_repos(uow):
+              """Repo.save MUST be visible from another repo without explicit commit.
+              
+              Uses a NewsSource: save via news_sources, find via feeds (or just
+              verify flush makes the data queryable).
+              """
+              from ingestion.domain.entities.ids import SourceId
+              from ingestion.domain.entities.news_source import NewsSource
+              from ingestion.domain.value_objects.source_type import SourceType
+              from ingestion.domain.value_objects.source_url import SourceUrl
+
+              source_id = SourceId()
+              source = NewsSource(
+                  id=source_id,
+                  name="Flush-Visibility Test Source",
+                  source_type=SourceType.RSS,
+                  source_url=SourceUrl("https://example.com/flush-test"),
+                  is_active=True,
+              )
+
+              with uow:
+                  # Save source which does session.flush() internally
+                  uow.news_sources.save(source)
+
+                  # Without commit(), should be findable from another perspective
+                  # via the same Session (flush already happened in repo.save())
+                  found = uow.news_sources.find_by_id(source_id)
+                  assert found.is_success()
+                  assert found.unwrap().name == "Flush-Visibility Test Source"
+
+    verify:
+      - "pytest tests/ingestion/infrastructure/test_unit_of_work.py -k 'test_all_repos_share or test_flush_visibility' — 2 PASS"
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # T10: Tests — Event Collection (R7, 4 scenarios)
+  # ══════════════════════════════════════════════════════════════════════════════
+  - id: T10
+    title: "Tests — Event Collection (R7, spec #15-#18)"
+    file: tests/ingestion/infrastructure/test_unit_of_work.py
+    depends_on: [T1, T2, T3]
+    description: >
+      Tests para R7: eventos recolectados solo post-commit, no sin commit,
+      no después de rollback, y desde múltiples roots.
+
+    details:
+      imports_adicionales:
+        - "from unittest.mock import MagicMock, PropertyMock"
+        - "from foundation.base.aggregate_root import AggregateRoot"
+        - "from foundation.events.domain_event import DomainEvent"
+
+      test_R7_post_commit_collects_events:
+        scenario: "#15 — Events collected after successful commit"
+        code: |
+          def test_events_collected_after_commit(uow):
+              """Events MUST be in _collected_events after successful commit()."""
+              event = MagicMock(spec=DomainEvent)
+              root = MagicMock(spec=AggregateRoot)
+              root.pull_events.return_value = [event]
+
+              with uow:
+                  uow.register_modified(root)
+                  uow._session.commit = MagicMock()  # type: ignore[method-assign]
+                  uow.commit()
+
+              assert len(uow._collected_events) == 1
+              assert uow._collected_events[0] is event
+
+      test_R7_no_events_without_commit:
+        scenario: "#16 — No events collected if commit() not called"
+        code: |
+          def test_no_events_without_commit(uow):
+              """_collected_events MUST be empty if commit() was never called."""
+              event = MagicMock(spec=DomainEvent)
+              root = MagicMock(spec=AggregateRoot)
+              root.pull_events.return_value = [event]
+
+              with uow:
+                  uow.register_modified(root)
+                  # No commit() called
+
+              assert len(uow._collected_events) == 0
+
+      test_R7_no_events_after_rollback:
+        scenario: "#17 — No events after rollback"
+        code: |
+          def test_no_events_after_rollback(uow):
+              """_collected_events MUST be empty if rollback() was called."""
+              event = MagicMock(spec=DomainEvent)
+              root = MagicMock(spec=AggregateRoot)
+              root.pull_events.return_value = [event]
+
+              with uow:
+                  uow.register_modified(root)
+                  uow.rollback()
+                  # No commit — events not collected even though registered
+
+              assert len(uow._collected_events) == 0
+
+      test_R7_multiple_roots_events:
+        scenario: "#18 — Events from multiple roots collected"
+        code: |
+          def test_events_from_multiple_roots(uow):
+              """Events from ALL registered roots MUST be collected."""
+              event1 = MagicMock(spec=DomainEvent)
+              event2 = MagicMock(spec=DomainEvent)
+              root1 = MagicMock(spec=AggregateRoot)
+              root1.pull_events.return_value = [event1]
+              root2 = MagicMock(spec=AggregateRoot)
+              root2.pull_events.return_value = [event2]
+
+              with uow:
+                  uow.register_modified(root1)
+                  uow.register_modified(root2)
+                  uow._session.commit = MagicMock()  # type: ignore[method-assign]
+                  uow.commit()
+
+              assert len(uow._collected_events) == 2
+              assert event1 in uow._collected_events
+              assert event2 in uow._collected_events
+
+      test_R7_idempotent_register:
+        scenario: "#19 — Same root registered multiple times appears once"
+        code: |
+          def test_register_modified_is_idempotent(uow):
+              """Registering the same root 5 times MUST result in exactly 1 event collection."""
+              event = MagicMock(spec=DomainEvent)
+              root = MagicMock(spec=AggregateRoot)
+              root.pull_events.return_value = [event]
+
+              with uow:
+                  # Register same root 5 times
+                  uow.register_modified(root)
+                  uow.register_modified(root)
+                  uow.register_modified(root)
+                  uow.register_modified(root)
+                  uow.register_modified(root)
+                  uow._session.commit = MagicMock()  # type: ignore[method-assign]
+                  uow.commit()
+
+              # pull_events called exactly once (not 5 times)
+              root.pull_events.assert_called_once()
+              assert len(uow._collected_events) == 1
+
+    verify:
+      - "pytest tests/ingestion/infrastructure/test_unit_of_work.py -k 'test_events_' — 5 PASS"
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # T11: Verify Regression (R8, spec #19)
+  # ══════════════════════════════════════════════════════════════════════════════
+  - id: T11
+    title: "Verify regression — 0 failures in full test suite"
+    action: verify
+    depends_on: [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]
+    description: >
+      Ejecutar la suite completa y verificar que los tests nuevos no rompen
+      ninguno de los ~1568 tests existentes.
+
+    details:
+      command: |
+        python -m pytest tests/ -x -v --tb=short 2>&1 | tail -30
+
+      expected: "=* 1568 passed* (or current count + 21 new) - 0 failed"
+      verify:
+        - "0 failed"
+        - "Nuevos tests de UoW (test_unit_of_work.py) aparecen como PASS"
+        - "Tests existentes NO modificados siguen PASS"
+
+    verify:
+      - "pytest tests/ -x --tb=short — exit code 0"
+      - "Ningún test existente falla"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Mapa de trazabilidad spec → task → scenarios
+# ═══════════════════════════════════════════════════════════════════════════════
+traceability:
+  - requirement: "R1 (UoW Creation)"
+    scenarios: "#1 #2"
+    task: T4
+    tests:
+      - test_uow_repos_are_none_before_enter
+      - test_uow_creates_session_and_repos_on_enter
+  - requirement: "R2 (Commit)"
+    scenarios: "#3 #4 #5"
+    task: T5
+    tests:
+      - test_commit_calls_session_commit_once
+      - test_commit_collects_events
+      - test_commit_failure_raises_persistence_error
+  - requirement: "R3 (Rollback)"
+    scenarios: "#6 #7"
+    task: T6
+    tests:
+      - test_explicit_rollback
+      - test_auto_rollback_on_exception
+  - requirement: "R4 (Close)"
+    scenarios: "#8 #9 #10"
+    task: T7
+    tests:
+      - test_close_called_on_normal_exit
+      - test_close_called_on_error_exit
+      - test_close_idempotent
+  - requirement: "R5 (Context Manager)"
+    scenarios: "#11 #12"
+    task: T8
+    tests:
+      - test_basic_with_statement
+      - test_nested_uows_have_independent_sessions
+  - requirement: "R6 (Cross-Repo)"
+    scenarios: "#13"
+    task: T9
+    tests:
+      - test_all_repos_share_same_session
+  - requirement: "R9 (Session Identity Chain)"
+    scenarios: "#14"
+    task: T9
+    tests:
+      - test_session_identity_chain
+  - requirement: "R7 (Event Collection)"
+    scenarios: "#15 #16 #17 #18 #19"
+    task: T10
+    tests:
+      - test_events_collected_after_commit
+      - test_no_events_without_commit
+      - test_no_events_after_rollback
+      - test_events_from_multiple_roots
+      - test_register_modified_is_idempotent
+  - requirement: "R8 (Regression)"
+    scenarios: "#19"
+    task: T11
+    tests:
+      - pytest tests/ -x
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Orden de ejecución recomendado para sdd-apply
+# ═══════════════════════════════════════════════════════════════════════════════
+execution_order:
+  - id: T1
+    file: unit_of_work.py
+  - id: T2
+    file: persistence/__init__.py export
+  - id: T3
+    file: conftest.py fixture
+  - id: T4
+    file: test_unit_of_work.py R1 (creation)
+  - id: T5
+    file: test_unit_of_work.py R2 (commit)
+  - id: T6
+    file: test_unit_of_work.py R3 (rollback)
+  - id: T7
+    file: test_unit_of_work.py R4 (close)
+  - id: T8
+    file: test_unit_of_work.py R5 (context manager)
+  - id: T9
+    file: test_unit_of_work.py R6 (cross-repo)
+  - id: T10
+    file: test_unit_of_work.py R7 (event collection)
+  - id: T11
+    file: regression
