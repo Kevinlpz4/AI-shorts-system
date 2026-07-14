@@ -95,8 +95,10 @@ class TestAppMiddleware:
     def test_middleware_order(self, app):
         """Middleware should be in correct execution order.
 
-        Last added = first executed. CORS is added after custom middleware,
-        so it appears first in the list. Custom middleware follows.
+        user_middleware list is REVERSE execution order (first item = outermost).
+        add_middleware() uses insert(0, ...) so last added = index 0 = outermost.
+
+        List order: CORS(0) → SecurityHeaders(1) → TrustedHost(2) → Recovery(3) → Timing(4) → RequestID(5) → CorrelationID(6)
         """
         middleware_classes = [
             m.cls.__name__ for m in app.user_middleware
@@ -104,17 +106,21 @@ class TestAppMiddleware:
         # CORS is outermost (added last in app.py)
         assert middleware_classes[0] == "CORSMiddleware"
         # Then our custom middleware
+        assert "SecurityHeadersMiddleware" in middleware_classes
+        assert "TrustedHostMiddleware" in middleware_classes
         assert "RecoveryMiddleware" in middleware_classes
         assert "TimingMiddleware" in middleware_classes
-        assert "CorrelationIDMiddleware" in middleware_classes
         assert "RequestIDMiddleware" in middleware_classes
+        assert "CorrelationIDMiddleware" in middleware_classes
         # Verify custom middleware order relative to each other
-        # user_middleware stores in reverse execution order (last added = index 0 = outermost)
+        # user_middleware stores in reverse execution order (first = outermost = lowest index)
+        security_idx = middleware_classes.index("SecurityHeadersMiddleware")
+        trusted_idx = middleware_classes.index("TrustedHostMiddleware")
         recovery_idx = middleware_classes.index("RecoveryMiddleware")
         timing_idx = middleware_classes.index("TimingMiddleware")
-        correlation_idx = middleware_classes.index("CorrelationIDMiddleware")
         request_idx = middleware_classes.index("RequestIDMiddleware")
-        assert request_idx < correlation_idx < timing_idx < recovery_idx
+        correlation_idx = middleware_classes.index("CorrelationIDMiddleware")
+        assert security_idx < trusted_idx < recovery_idx < timing_idx < request_idx < correlation_idx
 
 
 class TestAppSettings:

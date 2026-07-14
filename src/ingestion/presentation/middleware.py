@@ -1,20 +1,24 @@
 """
 Middleware Stack — Request lifecycle middleware.
 
-Four middleware applied in EXACT order (outermost first, i.e., last
+Six middleware applied in EXACT order (outermost first, i.e., last
 ``add_middleware`` = first to execute):
 
-1. **RequestIDMiddleware**: Read ``X-Request-ID`` from header or generate UUID v4.
-2. **CorrelationIDMiddleware**: Read ``X-Correlation-ID`` or use request_id.
-3. **TimingMiddleware**: Measure request duration, add ``X-Request-Duration``.
-4. **RecoveryMiddleware**: Catch ALL unhandled exceptions, return 500 Problem Details.
+1. **SecurityHeadersMiddleware**: Add security headers to every response.
+2. **TrustedHostMiddleware**: Validate Host header against allowed hosts.
+3. **RecoveryMiddleware**: Catch ALL unhandled exceptions, return 500 Problem Details.
+4. **TimingMiddleware**: Measure request duration, add ``X-Request-Duration``.
+5. **CorrelationIDMiddleware**: Read ``X-Correlation-ID`` or use request_id.
+6. **RequestIDMiddleware**: Read ``X-Request-ID`` from header or generate UUID v4.
 
 Usage::
 
-    app.add_middleware(RecoveryMiddleware)     # outermost (first to execute)
+    app.add_middleware(SecurityHeadersMiddleware)  # outermost (first to execute)
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=[...])
+    app.add_middleware(RecoveryMiddleware)
     app.add_middleware(TimingMiddleware)
     app.add_middleware(CorrelationIDMiddleware)
-    app.add_middleware(RequestIDMiddleware)     # innermost (last to execute)
+    app.add_middleware(RequestIDMiddleware)          # innermost (last to execute)
 """
 
 from __future__ import annotations
@@ -23,9 +27,11 @@ import logging
 import time
 import uuid
 
+from starlette.datastructures import MutableHeaders
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 logger = logging.getLogger(__name__)
 
@@ -126,3 +132,102 @@ class RecoveryMiddleware(BaseHTTPMiddleware):
                 content=body,
                 media_type="application/problem+json",
             )
+
+
+# ============================================================================
+# Security Headers Middleware
+# ============================================================================
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add security headers to every response.
+
+    Headers added:
+    - Strict-Transport-Security: 15768000; includeSubDomains (1 year)
+    - X-Content-Type-Options: nosniff
+    - X-Frame-Options: DENY
+    - Referrer-Policy: strict-origin-when-cross-origin
+    - Content-Security-Policy: default-src 'none'; frame-ancestors 'none'
+    - Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+    Configuration via ``Settings.SECURITY_HEADERS_ENABLED``.
+    """
+
+    DEFAULT_HEADERS: dict[str, str] = {
+        "Strict-Transport-Security": "max-age=15768000; includeSubDomains",
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+        "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    }
+
+    def __init__(self, app: ASGIApp, enabled: bool = True) -> None:
+        super().__init__(app)
+        self._enabled = enabled
+
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
+        response = await call_next(request)
+        if self._enabled:
+            for header, value in self.DEFAULT_HEADERS.items():
+                response.headers[header] = value
+        return response
+
+
+# ============================================================================
+# Trusted Host Middleware (lightweight wrapper)
+# ============================================================================
+
+
+class TrustedHostMiddleware(BaseHTTPMiddleware):
+    """Validate Host header against a list of allowed hosts.
+
+    Rejects requests with a ``Host`` header not in the allowed list
+    with a ``400 Bad Request`` Problem Details response.
+
+    Configuration via ``Settings.ALLOWED_HOSTS``.
+    """
+
+    def __init__(self, app: ASGIApp, allowed_hosts: list[str] | None = None) -> None:
+        super().__init__(app)
+        self._allowed_hosts = allowed_hosts or ["*"]
+
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
+        host = request.headers.get("host", "")
+        # Strip port for comparison (Host header may include port)
+        hostname = host.split(":")[0] if host else ""
+
+        # Check if any allowed host pattern matches
+        allowed = False
+        for pattern in self._allowed_hosts:
+            if pattern == "*":
+                allowed = True
+                break
+            if pattern.startswith("*."):
+                # Wildcard subdomain: *.example.com matches foo.example.com
+                suffix = pattern[1:]  # .example.com
+                if hostname.endswith(suffix) or hostname == pattern[2:]:
+                    allowed = True
+                    break
+            if hostname == pattern:
+                allowed = True
+                break
+
+        if not allowed:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "type": "about:blank",
+                    "title": "Bad Request",
+                    "status": 400,
+                    "detail": f"Invalid host: {hostname}",
+                    "instance": str(request.url),
+                },
+                media_type="application/problem+json",
+            )
+
+        return await call_next(request)

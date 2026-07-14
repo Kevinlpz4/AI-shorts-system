@@ -119,6 +119,7 @@ def perf_settings() -> Settings:
         LOG_LEVEL="WARNING",
         LOG_FORMAT="text",
         SECRET_KEY="perf-test-key",
+        ALLOWED_HOSTS=["*"],
     )
 
 

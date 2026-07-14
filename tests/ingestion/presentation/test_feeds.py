@@ -38,6 +38,7 @@ def _make_settings():
         ENVIRONMENT="testing",
         DATABASE_URL="sqlite:///:memory:",
         CORS_ORIGINS=[],
+        ALLOWED_HOSTS=["*"],
     )
 
 

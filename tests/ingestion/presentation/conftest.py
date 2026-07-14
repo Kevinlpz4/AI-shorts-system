@@ -38,6 +38,7 @@ def settings():
         LOG_LEVEL="INFO",
         LOG_FORMAT="text",
         SECRET_KEY="test-secret-key",
+        ALLOWED_HOSTS=["localhost", "127.0.0.1", "testserver"],
     )
 
 

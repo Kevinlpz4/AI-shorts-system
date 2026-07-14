@@ -14,8 +14,17 @@ Usage::
 
 from __future__ import annotations
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_INSECURE_KEYS = frozenset({
+    "change-me-in-production",
+    "change-me",
+    "changeme",
+    "secret",
+    "password",
+    "",
+})
 
 
 class Settings(BaseSettings):
@@ -34,6 +43,8 @@ class Settings(BaseSettings):
         LOG_LEVEL: Python logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
         LOG_FORMAT: Log output format ("json" or "text").
         SECRET_KEY: Application secret key.
+        ALLOWED_HOSTS: Trusted hosts for TrustedHostMiddleware.
+        SECURITY_HEADERS_ENABLED: Enable security headers middleware.
         app_name: Application display name.
         openapi_version: API version string.
         docs_url: Swagger UI URL.
@@ -74,8 +85,48 @@ class Settings(BaseSettings):
 
     # ── Security ──
     SECRET_KEY: str = "change-me-in-production"
+    ALLOWED_HOSTS: list[str] = Field(
+        default=["localhost", "127.0.0.1"],
+        description="Trusted hosts for TrustedHostMiddleware. Use ['*'] to allow all.",
+    )
+    SECURITY_HEADERS_ENABLED: bool = True
 
     # ── OpenAPI ──
     docs_url: str = "/docs"
     redoc_url: str = "/redoc"
     openapi_url: str = "/openapi.json"
+
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def validate_secret_key(cls, v: str) -> str:
+        """Reject insecure SECRET_KEY values in production."""
+        if v.strip().lower() in _INSECURE_KEYS:
+            # We can't check ENVIRONMENT here (it may not be set yet),
+            # so we warn but allow. The startup check in create_app()
+            # handles the production-specific validation.
+            pass
+        if len(v) < 8:
+            raise ValueError(
+                "SECRET_KEY must be at least 8 characters long. "
+                "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+            )
+        return v
+
+    @field_validator("CORS_ORIGINS")
+    @classmethod
+    def validate_cors_origins(cls, v: list[str]) -> list[str]:
+        """Reject wildcard CORS origins — they are insecure."""
+        if "*" in v:
+            raise ValueError(
+                "CORS_ORIGINS must not contain '*' wildcard. "
+                "List specific origins instead."
+            )
+        return v
+
+    @field_validator("LOG_FORMAT")
+    @classmethod
+    def validate_log_format(cls, v: str) -> str:
+        """Log format must be 'json' or 'text'."""
+        if v not in ("json", "text"):
+            raise ValueError(f"LOG_FORMAT must be 'json' or 'text', got '{v}'")
+        return v

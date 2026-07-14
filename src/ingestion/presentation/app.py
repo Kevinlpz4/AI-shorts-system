@@ -2,10 +2,11 @@
 FastAPI Application Factory.
 
 Creates a fully configured FastAPI instance with:
-- Middleware stack (Recovery → Timing → CorrelationID → RequestID)
+- Middleware stack (SecurityHeaders → TrustedHost → Recovery → Timing → CorrelationID → RequestID)
 - Exception handlers (FoundationError hierarchy → Problem Details)
 - Health endpoints (/health/live, /health/ready)
 - CORS configuration
+- SECRET_KEY validation (startup fail-fast in production)
 - Lifespan management (engine creation/disposal)
 
 Usage::
@@ -17,6 +18,7 @@ Usage::
 
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
@@ -36,8 +38,44 @@ from ingestion.presentation.middleware import (
     CorrelationIDMiddleware,
     RecoveryMiddleware,
     RequestIDMiddleware,
+    SecurityHeadersMiddleware,
     TimingMiddleware,
+    TrustedHostMiddleware,
 )
+
+logger = logging.getLogger(__name__)
+
+_INSECURE_SECRET_KEYS = frozenset({
+    "change-me-in-production",
+    "change-me",
+    "changeme",
+    "secret",
+    "password",
+    "",
+})
+
+
+def _validate_startup_settings(settings: Settings) -> None:
+    """Validate settings at startup. Raises RuntimeError on critical failures.
+
+    This runs AFTER Settings is constructed (pydantic validation passed),
+    but checks environment-specific rules that require knowing the ENVIRONMENT.
+    """
+    if settings.ENVIRONMENT == "production":
+        if settings.SECRET_KEY.strip().lower() in _INSECURE_SECRET_KEYS:
+            raise RuntimeError(
+                "CRITICAL: SECRET_KEY must be changed from its default value in production. "
+                "Generate a secure key: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+            )
+        if settings.DEBUG:
+            logger.warning(
+                "DEBUG mode is enabled in production — this may expose sensitive information"
+            )
+        if settings.CORS_ORIGINS == ["http://localhost:3000"]:
+            logger.warning(
+                "CORS_ORIGINS is set to localhost default in production — "
+                "configure AI_SHORTS_CORS_ORIGINS for your domain"
+            )
 
 
 @asynccontextmanager
@@ -62,16 +100,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     """Application factory. Creates a configured FastAPI instance.
 
     Middleware order (last added = first executed):
-        Recovery → Timing → CorrelationID → RequestID → Handler
+        SecurityHeaders → TrustedHost → Recovery → Timing → CorrelationID → RequestID → Handler
 
     Args:
         settings: Optional Settings instance. If None, creates from env.
 
     Returns:
         Fully configured FastAPI application.
+
+    Raises:
+        RuntimeError: If production settings are invalid (e.g., insecure SECRET_KEY).
     """
     if settings is None:
         settings = Settings()
+
+    # Startup validation — fail-fast for production
+    _validate_startup_settings(settings)
 
     # Setup structured logging
     setup_logging(
@@ -112,11 +156,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Store settings on app.state (also set in lifespan for immediate access)
     app.state.settings = settings
 
-    # ── Middleware (order: last added = first executed) ──
-    app.add_middleware(RecoveryMiddleware)
-    app.add_middleware(TimingMiddleware)
-    app.add_middleware(CorrelationIDMiddleware)
+    # ── Middleware (order: last added = first executed = outermost) ──
+    # NOTE: add_middleware() uses insert(0, ...) so the LAST call = OUTERMOST.
+    # We add innermost first, outermost last.
+    #
+    # Desired execution order (outermost first):
+    #   CORS → SecurityHeaders → TrustedHost → Recovery → Timing → RequestID → CorrelationID → Handler
+    #
+    # RequestID MUST be outermost among custom middleware because
+    # CorrelationIDMiddleware reads request.state.request_id as fallback.
+    #
+    app.add_middleware(CorrelationIDMiddleware)     # innermost (last to execute on request)
     app.add_middleware(RequestIDMiddleware)
+    app.add_middleware(TimingMiddleware)
+    app.add_middleware(RecoveryMiddleware)
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=settings.ALLOWED_HOSTS,
+    )
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        enabled=settings.SECURITY_HEADERS_ENABLED,
+    )
 
     # ── Exception handlers ──
     register_exception_handlers(app)
@@ -131,7 +192,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(categories_router, prefix="/api/v1")
     app.include_router(topics_router, prefix="/api/v1")
 
-    # ── CORS ──
+    # ── CORS (outermost in production, after security headers) ──
     if settings.CORS_ORIGINS:
         app.add_middleware(
             CORSMiddleware,
