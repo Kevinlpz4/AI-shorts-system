@@ -28,6 +28,9 @@ from ingestion.presentation.exceptions import register_exception_handlers
 from ingestion.presentation.health import router as health_router
 from ingestion.presentation.routers.sources import router as sources_router
 from ingestion.presentation.routers.feeds import router as feeds_router
+from ingestion.presentation.routers.articles import router as articles_router
+from ingestion.presentation.routers.categories import router as categories_router
+from ingestion.presentation.routers.topics import router as topics_router
 from ingestion.presentation.logging_config import setup_logging
 from ingestion.presentation.middleware import (
     CorrelationIDMiddleware,
@@ -124,6 +127,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # ── API v1 endpoints ──
     app.include_router(sources_router, prefix="/api/v1")
     app.include_router(feeds_router, prefix="/api/v1")
+    app.include_router(articles_router, prefix="/api/v1")
+    app.include_router(categories_router, prefix="/api/v1")
+    app.include_router(topics_router, prefix="/api/v1")
 
     # ── CORS ──
     if settings.CORS_ORIGINS:

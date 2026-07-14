@@ -1,6 +1,6 @@
 # EPIC 6 — Implementation Roadmap (Updated)
 
-**Last updated**: Sprint 6.3A (Application Completion)
+**Last updated**: Sprint 6.3B (Presentation Completion)
 **Design version**: v1.0 FROZEN
 
 ---
@@ -104,31 +104,37 @@ Complete the Application Layer for Category and Topic CRUD. No modifications to 
 - Duplicate name check for Topic uses `ApplicationErrorCode.COMMAND_INVALID` (no domain exception exists)
 - Mappers and DTOs were pre-existing from the design phase
 
-## Sprint 6.3B: Presentation Completion — Category + Topic + Article API
+## Sprint 6.3B: Presentation Completion — Category + Topic + Article API ✅
 
 **Dependencies**: 6.3A
-**Estimated tests**: 40-50
-**Status**: NOT STARTED
+**Actual tests**: 43 (11 Article + 15 Category + 15 Topic + 2 OpenAPI; exceeded estimate of 40-50)
+**Status**: COMPLETE
 
 Complete the Presentation Layer for all remaining Content API endpoints.
 
 | Endpoint | Operation | HTTP | Status |
 |----------|-----------|------|--------|
-| `POST /api/v1/articles` | CreateArticle | 201 | ⬜ |
-| `GET /api/v1/articles` | ListArticles (paginated) | 200 | ⬜ |
-| `GET /api/v1/articles/{id}` | GetArticle | 200 | ⬜ |
-| `POST /api/v1/categories` | CreateCategory | 201 | ⬜ |
-| `GET /api/v1/categories` | ListCategories | 200 | ⬜ |
-| `GET /api/v1/categories/{id}` | GetCategory | 200 | ⬜ |
-| `PUT /api/v1/categories/{id}` | UpdateCategory | 200 | ⬜ |
-| `POST /api/v1/categories/{id}/activate` | ActivateCategory | 204 | ⬜ |
-| `POST /api/v1/categories/{id}/deactivate` | DeactivateCategory | 204 | ⬜ |
-| `POST /api/v1/topics` | CreateTopic | 201 | ⬜ |
-| `GET /api/v1/topics` | ListTopics | 200 | ⬜ |
-| `GET /api/v1/topics/{id}` | GetTopic | 200 | ⬜ |
-| `PUT /api/v1/topics/{id}` | UpdateTopic | 200 | ⬜ |
-| `POST /api/v1/topics/{id}/activate` | ActivateTopic | 204 | ⬜ |
-| `POST /api/v1/topics/{id}/deactivate` | DeactivateTopic | 204 | ⬜ |
+| `POST /api/v1/articles` | CreateArticle | 201 | ✅ |
+| `GET /api/v1/articles` | ListArticles (paginated, by feed_id) | 200 | ✅ |
+| `GET /api/v1/articles/{id}` | GetArticle | 200 | ✅ |
+| `POST /api/v1/categories` | CreateCategory | 201 | ✅ |
+| `GET /api/v1/categories` | ListCategories | 200 | ✅ |
+| `GET /api/v1/categories/{id}` | GetCategory | 200 | ✅ |
+| `PUT /api/v1/categories/{id}` | UpdateCategory | 200 | ✅ |
+| `POST /api/v1/categories/{id}/activate` | ActivateCategory | 200 | ✅ |
+| `POST /api/v1/categories/{id}/deactivate` | DeactivateCategory | 200 | ✅ |
+| `POST /api/v1/topics` | CreateTopic | 201 | ✅ |
+| `GET /api/v1/topics` | ListTopics | 200 | ✅ |
+| `GET /api/v1/topics/{id}` | GetTopic | 200 | ✅ |
+| `PUT /api/v1/topics/{id}` | UpdateTopic | 200 | ✅ |
+| `POST /api/v1/topics/{id}/activate` | ActivateTopic | 200 | ✅ |
+| `POST /api/v1/topics/{id}/deactivate` | DeactivateTopic | 200 | ✅ |
+
+**Notes**:
+- Article list requires `feed_id` query param (ListArticlesQuery dependency)
+- Category/Topic activate/deactivate return 200 (entity with updated `is_active` state)
+- DELETE for categories/topics uses UoW directly (services lack remove methods)
+- All 43 tests pass, zero regressions against 1756+ existing tests
 
 ## Sprint 6.4: Observability & Operations
 
@@ -180,10 +186,10 @@ Complete the Presentation Layer for all remaining Content API endpoints.
 | Metric | Value |
 |--------|-------|
 | Total sprints | 9 (6.0 - 6.6) |
-| Total endpoints | 22 (10 Source + 12 Feed) + 2 health = 24 |
-| Total actual tests | 147 (61 Foundation + 21 Source + 35 Feed + 30 App Completion) |
+| Total endpoints | 37 (10 Source + 12 Feed + 3 Article + 6 Category + 6 Topic) + 2 health = 39 |
+| Total actual tests | 190 (61 Foundation + 21 Source + 35 Feed + 30 App Completion + 43 Presentation Completion) |
 | Existing tests (frozen layers) | 1115+ |
-| Grand total tests | 1756+ |
+| Grand total tests | 1799+ |
 
 ## Milestones
 
@@ -192,7 +198,7 @@ Complete the Presentation Layer for all remaining Content API endpoints.
 | M1: App Boots | 6.1 | FastAPI starts, middleware works, DI resolves | ✅ COMPLETE |
 | M2: Core API | 6.2 | Source + Feed endpoints functional | ✅ COMPLETE |
 | M3A: App Completion | 6.3A | Category + Topic services, commands, queries, mappers | ✅ COMPLETE |
-| M3B: Content API | 6.3B | Article + Category + Topic endpoints functional | NOT STARTED |
+| M3B: Content API | 6.3B | Article + Category + Topic endpoints functional | ✅ COMPLETE |
 | M4: Observability | 6.4 | Logging, metrics, performance verified | NOT STARTED |
 | M5: API Hardening | 6.5 | Rate limiting, idempotency, security | NOT STARTED |
 | M6: Presentation Freeze | 6.6 | E2E tests, audit, final freeze | NOT STARTED |
