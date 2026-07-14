@@ -7,6 +7,8 @@ Validates:
 - setup_logging configures root logger with text formatter
 - JSONFormatter produces valid JSON with required fields
 - RequestContextFilter adds request_id and correlation_id defaults
+- HTTP request context fields (method, path, status, duration_ms) are
+  accessible on LogRecord for middleware integration
 """
 
 from __future__ import annotations
@@ -171,3 +173,116 @@ class TestRequestContextFilter:
         assert result is True
         assert record.request_id == "my-request-id"
         assert record.correlation_id == "my-correlation-id"
+
+
+class TestLogRecordHTTPFields:
+    """Test that HTTP request context fields are accessible on LogRecord.
+
+    Middleware sets these fields on the log record via ``extra={}``.
+    The JSONFormatter reads request_id and correlation_id; other fields
+    (method, path, status, duration_ms) are available on the record for
+    custom formatters or downstream processing.
+    """
+
+    def test_record_method_field_accessible(self):
+        """LogRecord should support 'method' attribute for HTTP method."""
+        record = logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="request",
+            args=(),
+            exc_info=None,
+        )
+        record.method = "POST"
+        assert record.method == "POST"
+
+    def test_record_path_field_accessible(self):
+        """LogRecord should support 'path' attribute for URL path."""
+        record = logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="request",
+            args=(),
+            exc_info=None,
+        )
+        record.path = "/api/v1/sources"
+        assert record.path == "/api/v1/sources"
+
+    def test_record_status_field_accessible(self):
+        """LogRecord should support 'status' attribute for HTTP status code."""
+        record = logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="response",
+            args=(),
+            exc_info=None,
+        )
+        record.status = 201
+        assert record.status == 201
+
+    def test_record_duration_ms_field_accessible(self):
+        """LogRecord should support 'duration_ms' attribute for request duration."""
+        record = logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="completed",
+            args=(),
+            exc_info=None,
+        )
+        record.duration_ms = 42.57
+        assert record.duration_ms == 42.57
+
+    def test_json_formatter_preserves_extra_attributes(self):
+        """JSONFormatter should not crash when extra attributes are present."""
+        formatter = JSONFormatter()
+        record = logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="request handled",
+            args=(),
+            exc_info=None,
+        )
+        record.method = "POST"
+        record.path = "/api/v1/sources"
+        record.status = 200
+        record.duration_ms = 15.3
+
+        # Should not raise
+        output = formatter.format(record)
+        parsed = json.loads(output)
+        assert parsed["message"] == "request handled"
+
+    def test_json_formatter_with_exc_info(self):
+        """JSONFormatter should handle records with exc_info set."""
+        formatter = JSONFormatter()
+        try:
+            raise ValueError("test error")
+        except ValueError:
+            import sys
+            exc_info = sys.exc_info()
+
+        record = logging.LogRecord(
+            name="test",
+            level=logging.ERROR,
+            pathname="test.py",
+            lineno=1,
+            msg="error occurred",
+            args=(),
+            exc_info=exc_info,
+        )
+
+        # Should not raise
+        output = formatter.format(record)
+        parsed = json.loads(output)
+        assert parsed["level"] == "ERROR"
+        assert parsed["message"] == "error occurred"

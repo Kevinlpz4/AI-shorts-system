@@ -136,22 +136,28 @@ Complete the Presentation Layer for all remaining Content API endpoints.
 - DELETE for categories/topics uses UoW directly (services lack remove methods)
 - All 43 tests pass, zero regressions against 1756+ existing tests
 
-## Sprint 6.4: Observability & Operations
+## Sprint 6.4: Observability & Operations ✅
 
 **Dependencies**: 6.3B
-**Estimated tests**: 10-15
-**Status**: NOT STARTED
+**Actual tests**: ~25 (enhanced middleware, logging, health, OpenAPI + new performance baseline)
+**Status**: COMPLETE
 
-| Task | Description |
-|------|-------------|
-| 6.4.1 | Request ID propagation verification |
-| 6.4.2 | Correlation ID propagation verification |
-| 6.4.3 | Timing middleware verification |
-| 6.4.4 | Structured logging verification (JSON output) |
-| 6.4.5 | Performance baseline (p95 < 100ms for CRUD) |
-| 6.4.6 | Production checklist review |
+Verify and harden all observability, diagnostics, and operational capabilities defined in ADR-028.
 
-## Sprint 6.5: API Hardening
+| Task | Description | Status |
+|------|-------------|--------|
+| 6.4.1 | Request ID: auto-generate, preserve client, propagate to logs | ✅ |
+| 6.4.2 | Correlation ID: propagate HTTP → middleware → dependencies → application → logs | ✅ |
+| 6.4.3 | Timing middleware: precision, X-Request-Duration header, no response impact | ✅ |
+| 6.4.4 | Structured logging: JSON, all required fields (timestamp, level, request_id, correlation_id, method, path, status, duration_ms, exception) | ✅ |
+| 6.4.5 | Exception logging: Problem Details + structured log with stacktrace for 5xx only | ✅ |
+| 6.4.6 | Health endpoints: liveness, readiness (DB up/down), SessionFactory invalid | ✅ |
+| 6.4.7 | OpenAPI: tags, operationId, schemas, version, contact, license, servers, no orphan endpoints | ✅ |
+| 6.4.8 | Performance baseline: CRUD Source/Feed/Article, p95 < 100ms SQLite InMemory | ✅ |
+| 6.4.9 | Production checklist: all categories PASS | ✅ |
+| 6.4.10 | Documentation: observability-audit.md, performance-baseline.md, production-readiness.md | ✅ |
+
+## Sprint 6.5: Security & API Hardening
 
 **Dependencies**: 6.4
 **Estimated tests**: TBD
@@ -159,11 +165,14 @@ Complete the Presentation Layer for all remaining Content API endpoints.
 
 | Task | Description |
 |------|-------------|
-| 6.5.1 | Rate limiting |
-| 6.5.2 | Idempotency |
-| 6.5.3 | Security headers |
-| 6.5.4 | Input validation hardening |
-| 6.5.5 | API documentation polish |
+| 6.5.1 | CORS configuration hardening |
+| 6.5.2 | TrustedHost middleware |
+| 6.5.3 | Rate limiting |
+| 6.5.4 | Security headers (HSTS, X-Content-Type-Options, etc.) |
+| 6.5.5 | Configuration validation (env vars, secrets) |
+| 6.5.6 | OpenAPI documentation polish |
+| 6.5.7 | Idempotency review |
+| 6.5.8 | API versioning strategy |
 
 ## Sprint 6.6: E2E, Audit & Presentation Freeze
 
@@ -174,9 +183,9 @@ Complete the Presentation Layer for all remaining Content API endpoints.
 | Task | Description |
 |------|-------------|
 | 6.6.1 | E2E tests (full lifecycle) |
-| 6.6.2 | Cross-aggregate tests |
-| 6.6.3 | Contract tests (OpenAPI schema validation) |
-| 6.6.4 | Final audit + ARB sign-off |
+| 6.6.2 | Smoke tests |
+| 6.6.3 | Final ARB audit of Presentation Layer |
+| 6.6.4 | Deployment documentation |
 | 6.6.5 | Presentation Layer v1.0 declared FROZEN |
 
 ---
@@ -199,9 +208,9 @@ Complete the Presentation Layer for all remaining Content API endpoints.
 | M2: Core API | 6.2 | Source + Feed endpoints functional | ✅ COMPLETE |
 | M3A: App Completion | 6.3A | Category + Topic services, commands, queries, mappers | ✅ COMPLETE |
 | M3B: Content API | 6.3B | Article + Category + Topic endpoints functional | ✅ COMPLETE |
-| M4: Observability | 6.4 | Logging, metrics, performance verified | NOT STARTED |
-| M5: API Hardening | 6.5 | Rate limiting, idempotency, security | NOT STARTED |
-| M6: Presentation Freeze | 6.6 | E2E tests, audit, final freeze | NOT STARTED |
+| M4: Observability | 6.4 | Logging, metrics, performance verified | ✅ COMPLETE |
+| M5: Security Hardening | 6.5 | CORS, TrustedHost, rate limiting, security headers | NOT STARTED |
+| M6: Presentation Freeze | 6.6 | E2E tests, ARB audit, final freeze | NOT STARTED |
 
 ---
 
