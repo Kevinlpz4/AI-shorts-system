@@ -51,3 +51,12 @@ class LearningModelId(EntityId):
     def generate(cls) -> Self:
         """Create a new LearningModelId with a random UUID."""
         return cls()
+
+
+class KnowledgeArtifactId(EntityId):
+    """Identity for a KnowledgeArtifact entity."""
+
+    @classmethod
+    def generate(cls) -> Self:
+        """Create a new KnowledgeArtifactId with a random UUID."""
+        return cls()
