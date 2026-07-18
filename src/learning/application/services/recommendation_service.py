@@ -22,7 +22,6 @@ from learning.application.dto.recommendation_dto import RecommendationDTO
 from learning.application.errors.error_mapper import ErrorMapper
 from learning.application.exceptions.error_code import ApplicationErrorCode
 from learning.application.queries.prediction_queries import (
-    ExplainScoreQuery,
     PredictApprovalQuery,
 )
 from learning.application.services.explanation_service import ExplanationService
@@ -32,6 +31,7 @@ from learning.domain.ports.repositories import (
     LearningModelRepository,
     SourceQualityRepository,
 )
+from learning.domain.value_objects.feature_snapshot import FeatureSnapshot
 
 # Recommendation thresholds
 _APPROVAL_THRESHOLD = 0.7
@@ -89,12 +89,24 @@ class RecommendationService:
             prediction = prediction_result.value
 
             # 2. Get explanation
-            explanation_query = ExplainScoreQuery(
+            #    Build FeatureSnapshot from features dict if provided
+            feature_snapshot = None
+            if features:
+                from datetime import datetime, timezone
+
+                feature_snapshot = FeatureSnapshot(
+                    base_score=features.get("base_score", 0.0),
+                    freshness_score=features.get("freshness_score", 0.0),
+                    keyword_bonus=features.get("keyword_bonus", 0.0),
+                    source_bonus=features.get("source_bonus", 0.0),
+                    topic_penalty=features.get("topic_penalty", 0.0),
+                    confidence=features.get("confidence", 0.0),
+                    final_score=features.get("final_score", 0.0),
+                    timestamp=datetime.now(timezone.utc),
+                )
+            explanation_result = self._explanation_service.explain_decision(
                 source_name=source_name,
-                features=features,
-            )
-            explanation_result = self._explanation_service.execute_explain_score(
-                explanation_query
+                feature_snapshot=feature_snapshot,
             )
 
             # 3. Build recommendation based on thresholds

@@ -26,7 +26,7 @@ class TestRecommendationServiceRecommend:
         model_repo = MagicMock()
 
         prediction_service.execute_predict_approval.return_value = prediction_result
-        explanation_service.execute_explain_score.return_value = explanation_result
+        explanation_service.explain_decision.return_value = explanation_result
 
         service = RecommendationService(
             prediction_service=prediction_service,
