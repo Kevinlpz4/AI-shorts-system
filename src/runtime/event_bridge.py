@@ -15,7 +15,7 @@ Usage::
     bridge.subscribe("ingestion.completed", my_handler)
 
     publisher = EventBridgePublisher(inner=existing_bus, bridge=bridge)
-    publisher.publish(IntegrationEvent(event_type="ingestion.completed"))
+    publisher.publish(RoutingEvent(event_type="ingestion.completed"))
 """
 from __future__ import annotations
 
@@ -25,8 +25,13 @@ from typing import Any, Callable
 
 
 @dataclass
-class IntegrationEvent:
-    """Integration event — crosses BC boundaries.
+class RoutingEvent:
+    """Routing DTO for EventBridge — NOT a Foundation IntegrationEvent.
+
+    This is a lightweight transport object used by the EventBridge to
+    route events between Bounded Contexts. It is intentionally simpler
+    than ``foundation.events.IntegrationEvent`` — no UUID, no timestamp,
+    no versioning. Just event_type + payload + source for routing.
 
     Attributes:
         event_type: Type identifier for routing (e.g., ``"ingestion.completed"``).
@@ -52,35 +57,35 @@ class EventBridge:
 
     def __init__(self, max_buffer: int = 1000) -> None:
         self._handlers: dict[str, list[Callable]] = {}
-        self._buffer: deque[IntegrationEvent] = deque(maxlen=max_buffer)
+        self._buffer: deque[RoutingEvent] = deque(maxlen=max_buffer)
 
     def subscribe(self, event_type: str, handler: Callable) -> None:
         """Subscribe a handler to an event type.
 
         Args:
             event_type: The event type to listen for.
-            handler: Callable that receives the IntegrationEvent.
+            handler: Callable that receives the RoutingEvent.
         """
         if event_type not in self._handlers:
             self._handlers[event_type] = []
         self._handlers[event_type].append(handler)
 
-    def route(self, event: IntegrationEvent) -> None:
+    def route(self, event: RoutingEvent) -> None:
         """Route an event: buffer it and notify subscribed handlers.
 
         Args:
-            event: The integration event to route.
+            event: The routing event to route.
         """
         self._buffer.append(event)
         handlers = self._handlers.get(event.event_type, [])
         for handler in handlers:
             handler(event)
 
-    def drain(self) -> list[IntegrationEvent]:
+    def drain(self) -> list[RoutingEvent]:
         """Return all buffered events and clear the buffer.
 
         Returns:
-            List of all events that were in the buffer.
+            List of all routing events that were in the buffer.
         """
         events = list(self._buffer)
         self._buffer.clear()
@@ -106,21 +111,21 @@ class EventBridgePublisher:
         self._inner = inner
         self._bridge = bridge
 
-    def publish(self, event: IntegrationEvent) -> None:
+    def publish(self, event: RoutingEvent) -> None:
         """Publish an event — delegate to inner and route through bridge.
 
         Args:
-            event: The integration event to publish.
+            event: The routing event to publish.
         """
         if hasattr(self._inner, "publish"):
             self._inner.publish(event)
         self._bridge.route(event)
 
-    def publish_many(self, events: list[IntegrationEvent]) -> None:
+    def publish_many(self, events: list[RoutingEvent]) -> None:
         """Publish multiple events sequentially.
 
         Args:
-            events: List of integration events to publish.
+            events: List of routing events to publish.
         """
         for event in events:
             self.publish(event)

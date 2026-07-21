@@ -9,7 +9,10 @@ Covers:
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import text
+
+pytest.importorskip("sqlalchemy")
+
+from sqlalchemy import text  # noqa: E402
 
 from runtime.persistence.engine import RuntimeEngine
 

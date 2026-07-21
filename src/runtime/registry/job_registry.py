@@ -13,34 +13,7 @@ Usage::
 """
 from __future__ import annotations
 
-from typing import Protocol
-
-from foundation.result.result import Result
-from runtime.contracts.job_result import JobContext, JobResult
-
-
-class Job(Protocol):
-    """Protocol for jobs — units of orchestrated work.
-
-    A Job encapsulates its own step selection and pipeline execution.
-    The scheduler dispatches to JobRegistry, NOT directly to pipelines.
-
-    Attributes:
-        name: Unique name for this job (e.g., ``"ingestion"``, ``"learning"``).
-    """
-
-    name: str
-
-    async def execute(self, ctx: JobContext) -> Result[JobResult]:
-        """Execute this job.
-
-        Args:
-            ctx: Job execution context with correlation_id and metadata.
-
-        Returns:
-            Result[JobResult] — Success with job output, or Failure with error.
-        """
-        ...
+from runtime.jobs.base import Job
 
 
 class JobRegistry:
