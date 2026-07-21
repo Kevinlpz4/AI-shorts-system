@@ -1,0 +1,59 @@
+schema: spec-driven
+
+context: |
+  Tech stack: Python 3.12 + FastAPI 0.136 + SQLAlchemy 2.0 (PostgreSQL 16)
+  Frontend: Next.js 14 (App Router) + Zustand + TailwindCSS + TypeScript 5.4
+  Architecture: Clean/Hexagonal (DDD, SOLID, Ports & Adapters)
+  Bounded Contexts: Foundation, Ingestion, Learning (Sprints 7.0-7.7 complete)
+  Testing: pytest 9.x + pytest-asyncio (asyncio_mode=auto)
+  Style: ruff 0.15.20, ESLint (frontend)
+  AI: OpenRouter via OpenAI SDK, TTS: ElevenLabs/Azure
+
+strict_tdd: true
+
+testing:
+  runner:
+    command: "python3 -m pytest"
+    framework: pytest
+    plugin: pytest-asyncio
+  layers:
+    unit: { available: true, tool: "pytest (default)" }
+    integration: { available: true, tool: "pytest -m integration", note: "requires PostgreSQL" }
+    e2e: { available: true, tool: "httpx AsyncClient in FastAPI test mode", note: "created in Learning BC Sprint 7.6-7.7" }
+  coverage:
+    available: true
+    command: "python3 -m pytest --cov=src --cov-report=term-missing"
+  quality:
+    linter: { available: true, command: "ruff check ." }
+    type_checker: { available: false, command: "" }
+    formatter: { available: true, command: "ruff format ." }
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Identify affected bounded contexts
+  specs:
+    - Use Given/When/Then format for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+    - Use English for specs (code comments may be Spanish)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+    - Respect hexagonal architecture: domain never imports infrastructure
+  tasks:
+    - Group tasks by phase (domain, application, infrastructure, testing)
+    - Use hierarchical numbering (1.1, 1.2, etc.)
+    - Keep tasks small enough to complete in one session
+  apply:
+    - Follow existing code patterns and conventions
+    - Load architecture-principles skill for Python/SOLID enforcement
+    - Load go-testing skill only if modifying Go code
+    - Result[T] pattern for fallible operations (not exceptions)
+    - frozen dataclass for value objects, mutable for entities
+  verify:
+    test_command: "python3 -m pytest -v"
+    build_command: "python3 -c 'import app.main'"
+    coverage_threshold: 80
+  archive:
+    - Warn before merging destructive deltas
+    - Learning BC specs already archived in main specs after Sprint 7.7
