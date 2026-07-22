@@ -18,8 +18,12 @@ from runtime.providers.api.github import GITHUB_TRENDING_SOURCE
 from runtime.providers.api.hackernews import HACKERNEWS_SOURCE
 from runtime.providers.rss.anthropic import ANTHROPIC_SOURCE
 from runtime.providers.rss.devto import DEVTO_SOURCE
+from runtime.providers.rss.gamespot import GAMESPOT_SOURCE
 from runtime.providers.rss.google_news import GOOGLE_NEWS_SOURCE
+from runtime.providers.rss.ign import IGN_SOURCE
 from runtime.providers.rss.openai_blog import OPENAI_BLOG_SOURCE
+from runtime.providers.rss.playstation_blog import PLAYSTATION_BLOG_SOURCE
+from runtime.providers.rss.steam_news import STEAM_NEWS_SOURCE
 from runtime.providers.rss.techcrunch import TECHCRUNCH_SOURCE
 from runtime.providers.rss.theverge import THEVERGE_SOURCE
 from runtime.providers.reddit.reddit_ai import REDDIT_AI_SOURCE
@@ -27,13 +31,18 @@ from runtime.providers.reddit.reddit_gaming import REDDIT_GAMING_SOURCE
 
 # ── All sources in catalog ──────────────────────────────────────────
 ALL_SOURCES: list[SourceDefinition] = [
-    # RSS Sources (6)
+    # RSS Sources — Tech (6)
     GOOGLE_NEWS_SOURCE,
     OPENAI_BLOG_SOURCE,
     ANTHROPIC_SOURCE,
     TECHCRUNCH_SOURCE,
     THEVERGE_SOURCE,
     DEVTO_SOURCE,
+    # RSS Sources — Gaming (4)
+    STEAM_NEWS_SOURCE,
+    PLAYSTATION_BLOG_SOURCE,
+    IGN_SOURCE,
+    GAMESPOT_SOURCE,
     # Reddit Sources (2)
     REDDIT_AI_SOURCE,
     REDDIT_GAMING_SOURCE,
