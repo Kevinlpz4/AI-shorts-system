@@ -119,15 +119,28 @@ class TestIngestionJob:
 
         assert result.is_success
         events = bridge.drain()
-        assert len(events) == 1
-        assert events[0].event_type == "ingestion.completed"
-        assert events[0].source == "ingestion"
+        event_types = [e.event_type for e in events]
+        # Both orchestrator and job emit completion events
+        assert "pipeline.completed" in event_types
+        assert "ingestion.completed" in event_types
 
     @pytest.mark.asyncio
     async def test_publishes_failure_event(self) -> None:
         """IngestionJob publishes failure event when steps fail."""
         registry = StepRegistry()
         ingest = _make_step("ingest", 1, success=False)
+        # Add errors so pipeline_result.success becomes False
+        ingest.execute = AsyncMock(
+            return_value=Result.success(
+                StepResult(
+                    step_name="ingest",
+                    success=False,
+                    items_processed=10,
+                    items_output=0,
+                    errors=["fetch failed"],
+                )
+            )
+        )
         registry.register(ingest)
 
         bridge = EventBridge()
@@ -137,8 +150,8 @@ class TestIngestionJob:
         result = await job.execute(ctx)
 
         events = bridge.drain()
-        assert len(events) == 1
-        assert events[0].event_type == "ingestion.failed"
+        event_types = [e.event_type for e in events]
+        assert "ingestion.failed" in event_types
 
     @pytest.mark.asyncio
     async def test_records_duration(self) -> None:

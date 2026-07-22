@@ -150,5 +150,7 @@ class TestPipelineIntegration:
         await job.execute(ctx)
 
         events = bridge.drain()
-        assert len(events) == 1
-        assert events[0].event_type == "ingestion.completed"
+        event_types = [e.event_type for e in events]
+        # Both orchestrator and job emit events
+        assert "pipeline.completed" in event_types
+        assert "ingestion.completed" in event_types

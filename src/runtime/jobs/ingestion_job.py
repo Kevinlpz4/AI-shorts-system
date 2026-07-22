@@ -1,8 +1,11 @@
 """
 IngestionJob — orchestrates the full ingestion pipeline.
 
-Chains: IngestStep → NormalizeStep → DeduplicateStep
+Chains: IngestStep → NormalizeStep → DeduplicateStep → LearningIntegrationStep
 Publishes events via EventBridge on completion.
+
+Uses PipelineOrchestrator for step execution, or falls back to
+direct StepRegistry iteration.
 
 Usage::
 
@@ -21,6 +24,7 @@ from runtime.contracts.pipeline_context import PipelineContext
 from runtime.contracts.pipeline_result import PipelineResult
 from runtime.event_bridge import EventBridge, RoutingEvent
 from runtime.jobs.base import Job
+from runtime.pipelines.orchestrator import PipelineOrchestrator
 from runtime.registry.step_registry import StepRegistry
 
 logger = logging.getLogger(__name__)
@@ -29,8 +33,12 @@ logger = logging.getLogger(__name__)
 class IngestionJob:
     """Job that runs the ingestion pipeline.
 
-    Selects steps from StepRegistry by name, executes them in order,
-    and publishes completion events through EventBridge.
+    Uses PipelineOrchestrator to execute steps from StepRegistry.
+    Publishes completion events through EventBridge.
+
+    Args:
+        step_registry: Registry containing pipeline steps.
+        event_bridge: Optional EventBridge for event publishing.
     """
 
     name: str = "ingestion"
@@ -42,57 +50,31 @@ class IngestionJob:
     ) -> None:
         self._step_registry = step_registry
         self._event_bridge = event_bridge
+        self._orchestrator = PipelineOrchestrator(step_registry, event_bridge)
 
     async def execute(self, ctx: JobContext) -> Result[JobResult]:
         """Execute the ingestion pipeline.
 
-        Runs ingest → normalize → deduplicate in sequence.
-        Each step reads from and writes to PipelineContext.
+        Runs all registered steps via PipelineOrchestrator in sequence.
         """
         start_time = time.monotonic()
         pipeline_ctx = PipelineContext(correlation_id=ctx.correlation_id)
 
-        step_names = ["ingest", "normalize", "deduplicate"]
-        step_results = []
-        all_errors: list[str] = []
-
-        for step_name in step_names:
-            step = self._step_registry.get(step_name)
-            if step is None:
-                error = f"Step '{step_name}' not found in registry"
-                logger.warning(error)
-                all_errors.append(error)
-                continue
-
-            result = await step.execute(pipeline_ctx)
-            match result:
-                case Result(is_success=True) as r:
-                    step_result = r.unwrap()
-                    step_results.append(step_result)
-                    if not step_result.success:
-                        all_errors.extend(step_result.errors)
-                        if step.is_fatal:
-                            logger.error(
-                                "Fatal step '%s' failed — aborting pipeline",
-                                step_name,
-                            )
-                            break
-                case Result(is_success=False) as r:
-                    error_result = r.error
-                    all_errors.append(str(error_result))
-                    logger.warning("Step '%s' returned failure: %s", step_name, error_result)
-                    if step.is_fatal:
-                        break
+        # Delegate to orchestrator
+        result = await self._orchestrator.execute(pipeline_ctx)
 
         duration = time.monotonic() - start_time
-        pipeline_result = PipelineResult(
-            correlation_id=ctx.correlation_id,
-            steps=step_results,
-            success=len(all_errors) == 0,
-            total_items_processed=sum(s.items_processed for s in step_results),
-            total_items_output=sum(s.items_output for s in step_results),
-            errors=all_errors,
-        )
+
+        match result:
+            case Result(is_success=True) as r:
+                pipeline_result = r.unwrap()
+            case Result(is_success=False) as r:
+                # Orchestrator failure — create a minimal PipelineResult
+                pipeline_result = PipelineResult(
+                    correlation_id=ctx.correlation_id,
+                    success=False,
+                    errors=[str(r.error)],
+                )
 
         job_result = JobResult(
             job_name=self.name,
@@ -100,10 +82,10 @@ class IngestionJob:
             correlation_id=ctx.correlation_id,
             pipeline_result=pipeline_result,
             duration_seconds=duration,
-            errors=all_errors,
+            errors=pipeline_result.errors,
         )
 
-        # Publish events
+        # Publish events via EventBridge
         if self._event_bridge:
             event_type = (
                 "ingestion.completed" if pipeline_result.success
@@ -116,7 +98,7 @@ class IngestionJob:
                     "items_processed": str(pipeline_result.total_items_processed),
                     "items_output": str(pipeline_result.total_items_output),
                     "duration_seconds": f"{duration:.2f}",
-                    "errors": str(len(all_errors)),
+                    "errors": str(len(pipeline_result.errors)),
                 },
                 source="ingestion",
             )

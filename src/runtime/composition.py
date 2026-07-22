@@ -19,14 +19,17 @@ import logging
 from runtime.config import RuntimeConfig
 from runtime.event_bridge import EventBridge
 from runtime.jobs.ingestion_job import IngestionJob
+from runtime.monitoring.pipeline_metrics import PipelineMetrics
 from runtime.pipelines.deduplicate_step import DeduplicateStep
 from runtime.pipelines.ingest_step import IngestStep
+from runtime.pipelines.learning_step import LearningIntegrationStep
 from runtime.pipelines.normalize_step import NormalizeStep
 from runtime.providers.api.api_provider import APIProvider
 from runtime.providers.catalog import ALL_SOURCES
 from runtime.providers.reddit.reddit_provider import RedditProvider
 from runtime.providers.rss.rss_provider import RSSProvider
 from runtime.registry.registry_manager import RegistryManager
+from runtime.scheduler import PipelineScheduler
 
 logger = logging.getLogger(__name__)
 
@@ -77,10 +80,12 @@ def build_runtime(config: RuntimeConfig | None = None) -> tuple[RegistryManager,
     )
     normalize_step = NormalizeStep()
     deduplicate_step = DeduplicateStep()
+    learning_step = LearningIntegrationStep()
 
     manager.steps.register(ingest_step)
     manager.steps.register(normalize_step)
     manager.steps.register(deduplicate_step)
+    manager.steps.register(learning_step)
 
     logger.info(
         "Registered PipelineSteps: %s",
@@ -100,3 +105,39 @@ def build_runtime(config: RuntimeConfig | None = None) -> tuple[RegistryManager,
     logger.info("IngestionJob registered and wired")
 
     return manager, ingestion_job
+
+
+def build_full_runtime(config: RuntimeConfig | None = None) -> dict:
+    """Build and wire the complete Runtime with scheduler and metrics.
+
+    Args:
+        config: Optional RuntimeConfig. If None, uses defaults.
+
+    Returns:
+        Dict with all wired Runtime components.
+    """
+    if config is None:
+        config = RuntimeConfig()
+
+    manager, ingestion_job = build_runtime(config)
+
+    # ── PipelineMetrics ─────────────────────────────────────────────
+    metrics = PipelineMetrics()
+
+    # ── PipelineScheduler ───────────────────────────────────────────
+    scheduler = PipelineScheduler(
+        config=config,
+        job_registry=manager.jobs,
+        source_registry=manager.sources,
+    )
+
+    logger.info("Full Runtime built: scheduler + metrics + registries")
+
+    return {
+        "config": config,
+        "registry_manager": manager,
+        "event_bridge": EventBridge(max_buffer=config.event_bridge_max_buffer),
+        "ingestion_job": ingestion_job,
+        "scheduler": scheduler,
+        "metrics": metrics,
+    }
