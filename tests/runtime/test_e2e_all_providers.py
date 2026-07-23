@@ -247,7 +247,7 @@ async def test_e2e_reddit_gaming() -> None:
     items = await provider.fetch(
         "reddit-gaming",
         {
-            "subreddits": ["gaming", "pcgaming"],
+            "subreddits": ["Games", "pcgaming"],
             "timeout": 30,
             "max_retries": 2,
             "limit": 5,
@@ -325,7 +325,7 @@ async def test_e2e_all_providers_summary() -> None:
         "steam-news": "https://store.steampowered.com/feeds/news/",
         "playstation-blog": "https://blog.playstation.com/feed/",
         "ign": "https://feeds.feedburner.com/ign/all",
-        "gamespot": "https://www.gamespot.com/feeds/rss/",
+        "gamespot": "https://www.gamespot.com/feeds/mashup/",
     }
 
     for source_id, url in rss_sources.items():
@@ -345,7 +345,7 @@ async def test_e2e_all_providers_summary() -> None:
     # Reddit sources
     reddit_sources = {
         "reddit-ai": ["artificial", "OpenAI"],
-        "reddit-gaming": ["gaming", "pcgaming"],
+        "reddit-gaming": ["Games", "pcgaming"],
     }
 
     for source_id, subs in reddit_sources.items():

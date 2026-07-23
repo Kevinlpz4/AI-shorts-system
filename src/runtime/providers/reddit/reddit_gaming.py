@@ -1,8 +1,11 @@
 """
 Reddit Gaming — aggregation of gaming-related subreddits.
 
-Subreddits: r/gaming, r/pcgaming, r/nintendo
+Subreddits: Games, gaming, pcgaming, Steam, PS5, NintendoSwitch, XboxSeriesX, GTA6
 No credentials needed. Public RSS feeds.
+
+Note: 'nintendo' was replaced with 'NintendoSwitch' (the active subreddit).
+      'Games' added as it's the premier quality gaming discussion subreddit.
 """
 from __future__ import annotations
 
@@ -18,7 +21,7 @@ REDDIT_GAMING_SOURCE = SourceDefinition(
     id="reddit-gaming",
     provider="reddit",
     technology="reddit",
-    categories=["gaming", "pc", "nintendo"],
+    categories=["gaming", "pc", "console", "steam", "playstation", "nintendo", "xbox"],
     enabled=True,
     priority=6,
     poll_interval=timedelta(minutes=20),
@@ -26,7 +29,7 @@ REDDIT_GAMING_SOURCE = SourceDefinition(
     rate_limit=RateLimitConfig(requests_per_minute=5),
     default_tags=["reddit", "gaming", "community"],
     metadata={
-        "subreddits": "gaming,pcgaming,nintendo",
+        "subreddits": "Games,gaming,pcgaming,Steam,PS5,NintendoSwitch,XboxSeriesX,GTA6",
         "timeout": "30",
         "limit": "25",
     },
