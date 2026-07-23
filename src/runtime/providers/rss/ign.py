@@ -17,7 +17,7 @@ from runtime.contracts.source_definition import (
 
 IGN_SOURCE = SourceDefinition(
     id="ign",
-    provider="rss",
+    provider="ign",
     technology="rss",
     categories=["gaming", "reviews", "entertainment", "news"],
     enabled=True,

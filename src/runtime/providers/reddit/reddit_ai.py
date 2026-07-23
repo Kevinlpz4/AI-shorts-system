@@ -16,7 +16,7 @@ from runtime.contracts.source_definition import (
 
 REDDIT_AI_SOURCE = SourceDefinition(
     id="reddit-ai",
-    provider="reddit",
+    provider="reddit-ai",
     technology="reddit",
     categories=["ai", "machine-learning", "llm"],
     enabled=True,

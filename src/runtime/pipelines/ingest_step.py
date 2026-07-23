@@ -82,7 +82,7 @@ class IngestStep:
                 all_results.append(
                     ProviderResult(
                         source_id=source.id,
-                        provider=source.provider,
+                        provider=source.technology,
                         errors=[error_msg],
                     )
                 )
@@ -105,22 +105,26 @@ class IngestStep:
         )
 
     async def _fetch_source(self, source: SourceDefinition) -> ProviderResult:
-        """Fetch data from a single source using its TechnologyAdapter."""
-        provider = self._provider_registry.get(source.provider)
-        if provider is None:
+        """Fetch data from a single source using its TechnologyAdapter.
+
+        Uses ``source.technology`` to look up the correct adapter
+        (e.g., ``"rss"`` → RSSProvider, ``"api"`` → APIProvider).
+        """
+        adapter = self._provider_registry.get(source.technology)
+        if adapter is None:
             return ProviderResult(
                 source_id=source.id,
-                provider=source.provider,
-                errors=[f"Provider '{source.provider}' not found in registry"],
+                provider=source.technology,
+                errors=[f"Technology adapter '{source.technology}' not found in registry"],
             )
 
         # Build config from source metadata
         config = dict(source.metadata)
-        items = await provider.fetch(source.id, config)
+        items = await adapter.fetch(source.id, config)
 
         return ProviderResult(
             source_id=source.id,
-            provider=source.provider,
+            provider=source.technology,
             items=items,
             metadata={"item_count": str(len(items))},
         )

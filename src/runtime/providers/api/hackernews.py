@@ -90,7 +90,7 @@ async def _hn_transform(
 
 HACKERNEWS_SOURCE = SourceDefinition(
     id="hackernews",
-    provider="api",
+    provider="hackernews",
     technology="api",
     categories=["tech", "programming", "startups"],
     enabled=True,

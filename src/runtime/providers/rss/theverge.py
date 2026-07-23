@@ -16,7 +16,7 @@ from runtime.contracts.source_definition import (
 
 THEVERGE_SOURCE = SourceDefinition(
     id="theverge",
-    provider="rss",
+    provider="the-verge",
     technology="rss",
     categories=["tech", "ai", "gaming"],
     enabled=True,

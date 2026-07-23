@@ -16,7 +16,7 @@ from runtime.contracts.source_definition import (
 
 GOOGLE_NEWS_SOURCE = SourceDefinition(
     id="google-news-ai",
-    provider="rss",
+    provider="google-news",
     technology="rss",
     categories=["ai", "tech", "news"],
     enabled=True,

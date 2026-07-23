@@ -16,7 +16,7 @@ from runtime.contracts.source_definition import (
 
 OPENAI_BLOG_SOURCE = SourceDefinition(
     id="openai-blog",
-    provider="rss",
+    provider="openai",
     technology="rss",
     categories=["ai", "llm", "company"],
     enabled=True,

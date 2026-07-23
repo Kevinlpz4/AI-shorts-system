@@ -16,7 +16,7 @@ from runtime.contracts.source_definition import (
 
 TECHCRUNCH_SOURCE = SourceDefinition(
     id="techcrunch",
-    provider="rss",
+    provider="techcrunch",
     technology="rss",
     categories=["tech", "startups", "ai"],
     enabled=True,

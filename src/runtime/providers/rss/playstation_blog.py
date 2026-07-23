@@ -17,7 +17,7 @@ from runtime.contracts.source_definition import (
 
 PLAYSTATION_BLOG_SOURCE = SourceDefinition(
     id="playstation-blog",
-    provider="rss",
+    provider="playstation",
     technology="rss",
     categories=["gaming", "playstation", "ps5", "exclusive"],
     enabled=True,

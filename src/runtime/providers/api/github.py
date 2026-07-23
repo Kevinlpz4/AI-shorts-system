@@ -75,7 +75,7 @@ def github_transform(
 
 GITHUB_TRENDING_SOURCE = SourceDefinition(
     id="github-trending",
-    provider="api",
+    provider="github",
     technology="api",
     categories=["programming", "open-source", "ai"],
     enabled=True,

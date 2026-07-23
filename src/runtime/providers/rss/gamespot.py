@@ -17,7 +17,7 @@ from runtime.contracts.source_definition import (
 
 GAMESPOT_SOURCE = SourceDefinition(
     id="gamespot",
-    provider="rss",
+    provider="gamespot",
     technology="rss",
     categories=["gaming", "reviews", "news", "videos"],
     enabled=True,

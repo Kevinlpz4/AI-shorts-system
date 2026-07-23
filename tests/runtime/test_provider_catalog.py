@@ -58,7 +58,7 @@ class TestProviderCatalog:
         source = get_source("google-news-ai")
         assert source is not None
         assert source.id == "google-news-ai"
-        assert source.provider == "rss"
+        assert source.provider == "google-news"
 
     def test_get_source_missing(self) -> None:
         """get_source returns None for unknown id."""

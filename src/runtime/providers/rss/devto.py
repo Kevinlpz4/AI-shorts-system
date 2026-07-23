@@ -16,7 +16,7 @@ from runtime.contracts.source_definition import (
 
 DEVTO_SOURCE = SourceDefinition(
     id="devto",
-    provider="rss",
+    provider="devto",
     technology="rss",
     categories=["programming", "tutorials", "tech"],
     enabled=True,

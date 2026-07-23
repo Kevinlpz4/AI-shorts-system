@@ -66,10 +66,10 @@ class TestGamingSourceDefinitions:
             )
 
     def test_all_gaming_use_rss_provider(self) -> None:
-        """All gaming providers use RSS provider."""
+        """All gaming providers use RSS technology (provider is the real name)."""
         for source in GAMING_SOURCES:
-            assert source.provider == "rss", (
-                f"{source.id}: expected provider='rss', got '{source.provider}'"
+            assert source.technology == "rss", (
+                f"{source.id}: expected technology='rss', got '{source.technology}'"
             )
 
     def test_all_gaming_are_enabled(self) -> None:

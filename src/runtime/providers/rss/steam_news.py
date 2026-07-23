@@ -17,7 +17,7 @@ from runtime.contracts.source_definition import (
 
 STEAM_NEWS_SOURCE = SourceDefinition(
     id="steam-news",
-    provider="rss",
+    provider="steam",
     technology="rss",
     categories=["gaming", "pc", "releases", "updates"],
     enabled=True,

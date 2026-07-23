@@ -76,9 +76,10 @@ class SourceDefinition:
 
     Attributes:
         id: Unique identifier for this source.
-        provider: Provider name (e.g., ``"rss"``, ``"newsapi"``).
-        technology: Technology group (``"rss"``, ``"api"``, ``"graphql"``,
-            ``"webhook"``).
+        provider: Real provider name (e.g., ``"google-news"``, ``"techcrunch"``,
+            ``"hackernews"``). This is the human-readable identity of the source.
+        technology: Access mechanism (``"rss"``, ``"api"``, ``"reddit"``).
+            Used to look up the correct TechnologyAdapter at runtime.
         categories: Content categories this source covers.
         enabled: Whether this source is active.
         priority: Higher priority sources are fetched first.

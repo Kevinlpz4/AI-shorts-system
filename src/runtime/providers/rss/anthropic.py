@@ -18,7 +18,7 @@ from runtime.contracts.source_definition import (
 
 ANTHROPIC_SOURCE = SourceDefinition(
     id="anthropic-blog",
-    provider="rss",
+    provider="anthropic",
     technology="rss",
     categories=["ai", "safety", "company"],
     enabled=True,

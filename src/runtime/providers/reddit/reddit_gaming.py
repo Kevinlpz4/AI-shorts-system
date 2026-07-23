@@ -19,7 +19,7 @@ from runtime.contracts.source_definition import (
 
 REDDIT_GAMING_SOURCE = SourceDefinition(
     id="reddit-gaming",
-    provider="reddit",
+    provider="reddit-gaming",
     technology="reddit",
     categories=["gaming", "pc", "console", "steam", "playstation", "nintendo", "xbox"],
     enabled=True,
