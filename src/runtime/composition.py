@@ -18,6 +18,10 @@ import logging
 
 from runtime.config import RuntimeConfig
 from runtime.event_bridge import EventBridge
+from runtime.feedback.analytics import AnalyticsCollector
+from runtime.feedback.event_emitter import FeedbackEventEmitter
+from runtime.feedback.queue import DecisionQueue
+from runtime.feedback.reasons import FeedbackReasons
 from runtime.jobs.ingestion_job import IngestionJob
 from runtime.monitoring.pipeline_metrics import PipelineMetrics
 from runtime.pipelines.deduplicate_step import DeduplicateStep
@@ -121,6 +125,9 @@ def build_full_runtime(config: RuntimeConfig | None = None) -> dict:
 
     manager, ingestion_job = build_runtime(config)
 
+    # ── EventBridge (shared across all components) ──────────────────
+    event_bridge = EventBridge(max_buffer=config.event_bridge_max_buffer)
+
     # ── PipelineMetrics ─────────────────────────────────────────────
     metrics = PipelineMetrics()
 
@@ -133,11 +140,23 @@ def build_full_runtime(config: RuntimeConfig | None = None) -> dict:
 
     logger.info("Full Runtime built: scheduler + metrics + registries")
 
+    # ── Feedback Components ────────────────────────────────────────
+    feedback_reasons = FeedbackReasons()
+    decision_queue = DecisionQueue()
+    feedback_analytics = AnalyticsCollector()
+    feedback_event_emitter = FeedbackEventEmitter(event_bridge)
+
+    logger.info("Feedback components wired: reasons, queue, analytics, event_emitter")
+
     return {
         "config": config,
         "registry_manager": manager,
-        "event_bridge": EventBridge(max_buffer=config.event_bridge_max_buffer),
+        "event_bridge": event_bridge,
         "ingestion_job": ingestion_job,
         "scheduler": scheduler,
         "metrics": metrics,
+        "feedback_reasons": feedback_reasons,
+        "decision_queue": decision_queue,
+        "feedback_analytics": feedback_analytics,
+        "feedback_event_emitter": feedback_event_emitter,
     }
