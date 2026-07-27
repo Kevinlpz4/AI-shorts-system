@@ -81,9 +81,9 @@ class TestProviderRecoveryCatalog:
         assert source.metadata["url"] == "https://www.gamespot.com/feeds/mashup/"
 
     def test_all_sources_count_unchanged(self) -> None:
-        """Catalog must still have exactly 14 providers."""
-        assert len(ALL_SOURCES) == 14, (
-            f"Expected 14 sources, got {len(ALL_SOURCES)}"
+        """Catalog must still have exactly 16 providers (12 RSS + 2 Reddit + 2 Crunchyroll)."""
+        assert len(ALL_SOURCES) == 16, (
+            f"Expected 16 sources, got {len(ALL_SOURCES)}"
         )
 
 

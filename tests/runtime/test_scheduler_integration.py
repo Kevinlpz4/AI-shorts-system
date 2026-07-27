@@ -115,7 +115,7 @@ class TestSchedulerIntegration:
         manager, job = build_runtime()
 
         # Verify all registries are populated
-        assert len(manager.sources.get_all()) == 14
+        assert len(manager.sources.get_all()) == 16
         assert len(manager.providers.get_all()) == 3
         assert len(manager.steps.list_names()) == 4  # ingest, normalize, deduplicate, learning
         assert len(manager.jobs.list_names()) == 1

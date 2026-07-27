@@ -32,6 +32,11 @@ class QueueItem:
     added_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     status: str = "pending"
     metadata: Dict = field(default_factory=dict)
+    # Presentation fields (optional — CLI hides when empty)
+    title: Optional[str] = None
+    url: Optional[str] = None
+    published: Optional[str] = None
+    summary: Optional[str] = None
 
 
 class DecisionQueue:
@@ -56,6 +61,10 @@ class DecisionQueue:
         score: float,
         recommendation: str,
         metadata: Optional[Dict] = None,
+        title: Optional[str] = None,
+        url: Optional[str] = None,
+        published: Optional[str] = None,
+        summary: Optional[str] = None,
     ) -> Result[QueueItem]:
         """Add an item to the queue."""
         item = QueueItem(
@@ -69,6 +78,10 @@ class DecisionQueue:
             recommendation=recommendation,
             added_at=datetime.now(timezone.utc),
             metadata=metadata or {},
+            title=title,
+            url=url,
+            published=published,
+            summary=summary,
         )
         self._items.append(item)
         return Result.success(item)
