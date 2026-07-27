@@ -51,6 +51,21 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("list-sources", help="Listar todas las fuentes configuradas")
     sub.add_parser("cycle", help="Ciclo completo: ingesta → feedback → stats")
 
+    # Simulation subcommand
+    sim_parser = sub.add_parser("simulate", help="Ejecutar simulación acelerada de aprendizaje adaptativo")
+    sim_parser.add_argument("--days", type=int, default=30, help="Días a simular (default: 30)")
+    sim_parser.add_argument("--iterations", type=int, default=500, help="Iteraciones máximas por día (default: 500)")
+    sim_parser.add_argument("--seed", type=int, default=42, help="Seed para reproducibilidad (default: 42)")
+    sim_parser.add_argument("--feedback-policy", type=str, default="balanced",
+                            choices=["conservative", "balanced", "aggressive",
+                                     "quality_focused", "gaming_focused", "programming_focused"],
+                            help="Política de revisión (default: balanced)")
+    sim_parser.add_argument("--speed", type=str, default="accelerated",
+                            choices=["accelerated", "realtime"],
+                            help="Velocidad de ejecución (default: accelerated)")
+    sim_parser.add_argument("--report", type=str, default="simulation_reports",
+                            help="Directorio de reportes (default: simulation_reports)")
+
     return parser
 
 
@@ -558,6 +573,85 @@ def _populate_demo_queue(queue) -> None:
         queue.add(**item)
 
 
+async def cmd_simulate(runtime: dict, args) -> None:
+    """Ejecutar simulación acelerada de aprendizaje adaptativo."""
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+    from runtime.simulation.config import SimulationConfig
+    from runtime.simulation.engine import SimulationEngine
+
+    console = Console()
+
+    console.print(Panel(
+        f"[bold]Simulation Engine[/bold]\n"
+        f"  Days: [cyan]{args.days}[/cyan]\n"
+        f"  Seed: [cyan]{args.seed}[/cyan]\n"
+        f"  Policy: [cyan]{args.feedback_policy}[/cyan]\n"
+        f"  Speed: [cyan]{args.speed}[/cyan]",
+        title="🎬 AI Shorts — Adaptive Learning Simulation",
+        border_style="magenta",
+    ))
+
+    config = SimulationConfig(
+        days=args.days,
+        iterations=args.iterations,
+        seed=args.seed,
+        feedback_policy=args.feedback_policy,
+        speed=args.speed,
+        report_dir=args.report,
+    )
+
+    engine = SimulationEngine(config)
+
+    console.print("[bold]Running simulation...[/bold]\n")
+    report = engine.run()
+
+    # Display summary
+    summary = report["summary"]
+    evolution = report["evolution"]
+    meta = report["metadata"]
+
+    console.print(Panel(
+        "[bold green]Simulation Complete[/bold green]",
+        border_style="green",
+    ))
+
+    table = Table(title="Simulation Results", box=None)
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value", style="green")
+    table.add_row("Articles processed", str(summary["articles_processed"]))
+    table.add_row("Decisions made", str(summary["decisions_made"]))
+    table.add_row("Approved", f"[green]{summary['approved']}[/green]")
+    table.add_row("Rejected", f"[red]{summary['rejected']}[/red]")
+    table.add_row("Skipped", f"[yellow]{summary['skipped']}[/yellow]")
+    table.add_row("Signals generated", str(summary["signals_generated"]))
+    table.add_row("Elapsed time", f"{meta['elapsed_seconds']:.1f}s")
+    console.print(table)
+
+    console.print(Panel(
+        f"[bold]Learning Evolution[/bold]\n"
+        f"  Confidence: {evolution['confidence_start']:.3f} → "
+        f"{evolution['confidence_end']:.3f} "
+        f"({evolution['confidence_delta']:+.4f})\n"
+        f"  Approval Rate: {evolution['approval_rate_start']:.3f} → "
+        f"{evolution['approval_rate_end']:.3f} "
+        f"({evolution['approval_rate_delta']:+.4f})\n"
+        f"  Source Quality: {evolution['source_quality_start']:.3f} → "
+        f"{evolution['source_quality_end']:.3f} "
+        f"({evolution['source_quality_delta']:+.4f})\n"
+        f"  Knowledge Growth: {evolution['knowledge_growth']}",
+        border_style="cyan",
+    ))
+
+    console.print(
+        f"\n  [green]📁 Reports saved to:[/green] [dim]{args.report}/[/dim]"
+    )
+    console.print(
+        f"  [green]📊 Charts saved to:[/green] [dim]{args.report}/charts/[/dim]"
+    )
+
+
 # ── Main ──────────────────────────────────────────────────────────
 
 
@@ -575,6 +669,11 @@ def main():
     ))
 
     command = args.command or "cycle"
+
+    # Handle simulate separately (doesn't need full runtime)
+    if command == "simulate":
+        asyncio.run(cmd_simulate(runtime, args))
+        return
 
     dispatch = {
         "ingest": cmd_ingest,
