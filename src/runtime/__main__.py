@@ -163,7 +163,7 @@ async def cmd_feedback(runtime: dict) -> None:
             comment=comment,
         )
 
-        if process_result.is_ok():
+        if process_result.is_success:
             # Crear FeedbackRecord
             record = FeedbackRecord(
                 id=str(uuid.uuid4()),
