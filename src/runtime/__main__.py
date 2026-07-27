@@ -343,6 +343,15 @@ def _populate_demo_queue(queue) -> None:
             "url": "https://openai.com/blog/gpt-5",
             "published": "2026-07-27",
             "summary": "OpenAI announces GPT-5 with 10x performance gains and native multimodal support across text, image, and video.",
+            "metadata": {
+                "reasons": {
+                    "source_quality": 0.95,
+                    "freshness": "Very High",
+                    "keywords": ["GPT-5", "OpenAI", "reasoning"],
+                    "similar_approved": 38,
+                    "confidence": 0.94,
+                },
+            },
         },
         {
             "article_id": "demo-002",
@@ -356,6 +365,15 @@ def _populate_demo_queue(queue) -> None:
             "url": "https://techcrunch.com/2026/07/26/ai-coding-100m",
             "published": "2026-07-26",
             "summary": "A new AI coding startup secures Series B funding to build an autonomous agent that can write, test, and deploy code.",
+            "metadata": {
+                "reasons": {
+                    "source_quality": 0.91,
+                    "freshness": "High",
+                    "keywords": ["AI", "coding", "startup", "funding"],
+                    "similar_approved": 25,
+                    "confidence": 0.87,
+                },
+            },
         },
         {
             "article_id": "demo-003",
@@ -369,6 +387,15 @@ def _populate_demo_queue(queue) -> None:
             "url": "https://store.steampowered.com/news/steam-sale",
             "published": "2026-07-25",
             "summary": "Valve confirms the biggest Steam sale event yet with over 5000 discounted titles.",
+            "metadata": {
+                "reasons": {
+                    "source_quality": 0.88,
+                    "freshness": "High",
+                    "keywords": ["Steam", "sale", "gaming", "deals"],
+                    "similar_approved": 15,
+                    "confidence": 0.80,
+                },
+            },
         },
         {
             "article_id": "demo-004",
@@ -382,6 +409,15 @@ def _populate_demo_queue(queue) -> None:
             "url": "https://theverge.com/2026/07/25/vision-pro-2",
             "published": "2026-07-25",
             "summary": "Supply chain leaks suggest Apple Vision Pro 2 will be 40% lighter with a $2000 price point.",
+            "metadata": {
+                "reasons": {
+                    "source_quality": 0.85,
+                    "freshness": "Medium",
+                    "keywords": ["Apple", "Vision Pro", "VR"],
+                    "similar_approved": 8,
+                    "confidence": 0.62,
+                },
+            },
         },
         {
             "article_id": "demo-005",
@@ -395,6 +431,15 @@ def _populate_demo_queue(queue) -> None:
             "url": "https://arxiv.org/abs/2026.12345",
             "published": "2026-07-24",
             "summary": "New paper proposes a sparse attention mechanism that reduces transformer compute by 10x while maintaining SOTA benchmarks.",
+            "metadata": {
+                "reasons": {
+                    "source_quality": 0.70,
+                    "freshness": "Medium",
+                    "keywords": ["transformer", "efficiency", "SOTA"],
+                    "similar_approved": 5,
+                    "confidence": 0.58,
+                },
+            },
         },
         {
             "article_id": "demo-006",
@@ -408,6 +453,15 @@ def _populate_demo_queue(queue) -> None:
             "url": "https://news.ycombinator.com/item?id=99999",
             "published": "2026-07-27",
             "summary": "A new open-source coding assistant that runs entirely locally using quantized LLMs, no API key needed.",
+            "metadata": {
+                "reasons": {
+                    "source_quality": 0.82,
+                    "freshness": "Very High",
+                    "keywords": ["open-source", "Copilot", "LLM", "local"],
+                    "similar_approved": 32,
+                    "confidence": 0.90,
+                },
+            },
         },
         {
             "article_id": "demo-007",
@@ -421,6 +475,15 @@ def _populate_demo_queue(queue) -> None:
             "url": "https://ign.com/articles/switch-2-confirmed",
             "published": "2026-07-23",
             "summary": "Nintendo officially confirms Switch 2 with full backward compatibility and 4K docked output.",
+            "metadata": {
+                "reasons": {
+                    "source_quality": 0.90,
+                    "freshness": "Medium",
+                    "keywords": ["Nintendo", "Switch 2", "console"],
+                    "similar_approved": 20,
+                    "confidence": 0.76,
+                },
+            },
         },
         {
             "article_id": "demo-008",
@@ -434,6 +497,15 @@ def _populate_demo_queue(queue) -> None:
             "url": "https://github.com/example/rust-runtime",
             "published": "2026-07-27",
             "summary": "A Rust-based JavaScript runtime challenges Bun with native TypeScript support and 2x faster cold starts.",
+            "metadata": {
+                "reasons": {
+                    "source_quality": 0.78,
+                    "freshness": "Very High",
+                    "keywords": ["Rust", "JavaScript", "runtime", "Bun"],
+                    "similar_approved": 18,
+                    "confidence": 0.83,
+                },
+            },
         },
     ]
 
