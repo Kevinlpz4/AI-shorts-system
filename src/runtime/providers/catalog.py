@@ -23,6 +23,8 @@ from runtime.providers.rss.google_news import GOOGLE_NEWS_SOURCE
 from runtime.providers.rss.ign import IGN_SOURCE
 from runtime.providers.rss.openai_blog import OPENAI_BLOG_SOURCE
 from runtime.providers.rss.playstation_blog import PLAYSTATION_BLOG_SOURCE
+from runtime.providers.rss.crunchyroll_anime import CRUNCHYROLL_ANIME_SOURCE
+from runtime.providers.rss.crunchyroll_news import CRUNCHYROLL_NEWS_SOURCE
 from runtime.providers.rss.steam_news import STEAM_NEWS_SOURCE
 from runtime.providers.rss.techcrunch import TECHCRUNCH_SOURCE
 from runtime.providers.rss.theverge import THEVERGE_SOURCE
@@ -43,6 +45,9 @@ ALL_SOURCES: list[SourceDefinition] = [
     PLAYSTATION_BLOG_SOURCE,
     IGN_SOURCE,
     GAMESPOT_SOURCE,
+    # RSS Sources — Anime (2)
+    CRUNCHYROLL_NEWS_SOURCE,
+    CRUNCHYROLL_ANIME_SOURCE,
     # Reddit Sources (2)
     REDDIT_AI_SOURCE,
     REDDIT_GAMING_SOURCE,
