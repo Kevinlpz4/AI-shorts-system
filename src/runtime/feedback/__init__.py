@@ -7,7 +7,7 @@ for human review of recommended items.
 from __future__ import annotations
 
 from runtime.feedback.analytics import AnalyticsCollector
-from runtime.feedback.cli import FeedbackCLI
+from runtime.feedback.cli import FeedbackCLI, SessionDecision
 from runtime.feedback.event_emitter import FeedbackEventEmitter
 from runtime.feedback.models import Decision, DecisionSession, FeedbackRecord
 from runtime.feedback.queue import DecisionQueue, QueueItem
@@ -24,4 +24,5 @@ __all__ = [
     "FeedbackReasons",
     "QueueItem",
     "RejectionReason",
+    "SessionDecision",
 ]

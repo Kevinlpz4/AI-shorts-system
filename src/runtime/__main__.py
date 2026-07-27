@@ -138,7 +138,7 @@ async def cmd_feedback(runtime: dict) -> None:
     console.print(
         Panel(
             f"Items pendientes: [bold]{stats['pending']}[/bold]\n"
-            "Atajos: [A]pprove  [R]eject  [S]kip  [Q]uit  [O]pen URL  [U]ndo",
+            "Atajos: [A]pprove  [R]eject  [S]kip  [Q]uit  [O]pen URL  [U]ndo  [H]istory",
             title="🎬 AI Shorts — Feedback Review",
             border_style="green",
         )
@@ -184,6 +184,9 @@ async def cmd_feedback(runtime: dict) -> None:
 
                 # Show diff if human disagrees with system
                 cli.show_decision_diff(item, decision)
+
+                # Show learning update panel
+                cli.show_learning_update(item, decision, reason)
 
                 # Create FeedbackRecord
                 record = FeedbackRecord(
@@ -234,6 +237,17 @@ async def cmd_feedback(runtime: dict) -> None:
     # ── Resumen final extendido ──────────────────────────────────
     analytics_summary = runtime["feedback_analytics"].get_summary()
     cli.show_session_summary(analytics_summary, records_sent)
+
+    # ── Learning Progress panel ──────────────────────────────────
+    cli.show_learning_progress()
+
+    # ── Export session to JSON ───────────────────────────────────
+    if cli.session_stats.processed > 0:
+        filepath = cli.export_session()
+        if filepath:
+            console.print(
+                f"\n  [green]📁 Session exported:[/green] [dim]{filepath}[/dim]"
+            )
 
 
 async def cmd_schedule(runtime: dict) -> None:

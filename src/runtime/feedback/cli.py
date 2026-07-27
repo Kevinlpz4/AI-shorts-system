@@ -5,16 +5,18 @@ Design principles:
     1. Pure presentation layer — no business logic.
     2. All I/O goes through Rich Console.
     3. Decision flow: show item → get decision → process → loop.
-    4. Shortcuts: A(pprove), R(eject), S(kip), Q(uit), O(pen URL), U(ndo)
+    4. Shortcuts: A(pprove), R(eject), S(kip), Q(uit), O(pen URL), U(ndo), H(istory)
 """
 from __future__ import annotations
 
+import json
 import time
 import webbrowser
-from dataclasses import dataclass, field
-from typing import Optional, Tuple
+from dataclasses import dataclass, field, asdict
+from typing import Optional, Tuple, List
 from datetime import datetime, timezone
 import uuid
+from pathlib import Path
 
 from rich import box
 from rich.console import Console
@@ -38,15 +40,44 @@ def _score_color(score: float) -> str:
     return "red"
 
 
+def _confidence_bar(confidence: float, width: int = 12) -> str:
+    """Render a visual confidence bar."""
+    filled = int(width * confidence)
+    empty = width - filled
+    color = _score_color(confidence)
+    return f"[{color}]{'█' * filled}{'░' * empty}[/{color}] {confidence:.0%}"
+
+
 @dataclass
 class SessionDecision:
-    """One decision made during a session — for undo and summary."""
+    """One decision made during a session — for undo, history, and export."""
 
     item: QueueItem
     decision: Decision
     reason: str
     comment: Optional[str]
     timestamp: float
+    ai_agrees: bool = True
+
+    @property
+    def time_str(self) -> str:
+        return datetime.fromtimestamp(self.timestamp).strftime("%H:%M:%S")
+
+    @property
+    def title_or_id(self) -> str:
+        return self.item.title or self.item.article_id[:12]
+
+    @property
+    def icon(self) -> str:
+        if self.decision == Decision.APPROVE:
+            return "✅"
+        if self.decision == Decision.REJECT:
+            return "❌"
+        return "⏭"
+
+    @property
+    def decision_label(self) -> str:
+        return self.decision.value.upper()
 
 
 @dataclass
@@ -60,6 +91,11 @@ class SessionStats:
     start_time: float = field(default_factory=time.time)
     decision_times: list[float] = field(default_factory=list)
     records_sent: int = 0
+    # Learning growth tracking
+    sources_seen: dict = field(default_factory=dict)   # source → {approved, rejected}
+    categories_seen: dict = field(default_factory=dict) # category → {approved, rejected}
+    keywords_seen: dict = field(default_factory=dict)   # keyword → count
+    confidence_trend: list[float] = field(default_factory=list)
 
     @property
     def processed(self) -> int:
@@ -75,15 +111,51 @@ class SessionStats:
             return 0.0
         return sum(self.decision_times) / len(self.decision_times)
 
+    @property
+    def agreement_rate(self) -> float:
+        """Rate at which human agrees with AI recommendation."""
+        from runtime.feedback.models import Decision as D
+        total_decisions = self.approved + self.rejected
+        if total_decisions == 0:
+            return 0.0
+        # Count agreements: approve when AI said approve, reject when AI said reject
+        agreements = sum(
+            1 for d in self._decisions_list
+            if d.ai_agrees
+        )
+        return agreements / total_decisions if total_decisions > 0 else 0.0
+
     def eta_for(self, remaining: int) -> float:
         return self.avg_time * remaining if self.avg_time > 0 else 0.0
+
+    # Internal list of decisions for agreement tracking
+    _decisions_list: list = field(default_factory=list, repr=False)
+
+    def record_source(self, source: str, approved: bool) -> None:
+        if source not in self.sources_seen:
+            self.sources_seen[source] = {"approved": 0, "rejected": 0}
+        key = "approved" if approved else "rejected"
+        self.sources_seen[source][key] += 1
+
+    def record_category(self, category: str, approved: bool) -> None:
+        if category not in self.categories_seen:
+            self.categories_seen[category] = {"approved": 0, "rejected": 0}
+        key = "approved" if approved else "rejected"
+        self.categories_seen[category][key] += 1
+
+    def record_keywords(self, keywords: list[str]) -> None:
+        for kw in keywords:
+            self.keywords_seen[kw] = self.keywords_seen.get(kw, 0) + 1
+
+    def record_confidence(self, confidence: float) -> None:
+        self.confidence_trend.append(confidence)
 
 
 class FeedbackCLI:
     """Rich-based CLI for human feedback on recommended items.
 
-    Supports shortcuts (A/R/S/Q/O/U), progress bar, numbered reason menu,
-    undo, and extended session summary.
+    Supports shortcuts (A/R/S/Q/O/U/H), progress bar, numbered reason menu,
+    undo, session history, learning panels, and JSON export.
     """
 
     def __init__(self, queue: DecisionQueue, reasons: FeedbackReasons) -> None:
@@ -95,6 +167,7 @@ class FeedbackCLI:
         self._undo_stack: list[SessionDecision] = []
         self._last_item: Optional[QueueItem] = None
         self._items_total: int = 0
+        self._session_id = str(uuid.uuid4())
 
     @property
     def session_stats(self) -> SessionStats:
@@ -103,6 +176,10 @@ class FeedbackCLI:
     @property
     def user_id(self) -> str:
         return self._user_id
+
+    @property
+    def session_id(self) -> str:
+        return self._session_id
 
     # ── Progress ─────────────────────────────────────────────────────
 
@@ -161,10 +238,14 @@ class FeedbackCLI:
         """Build a Rich Panel with full item context."""
         sections: list[str] = []
 
-        # ── Recommendation header ────────────────────────────────
+        # ── AI Recommendation header ────────────────────────────
         rec_style = "green" if item.recommendation.upper() == "APPROVE" else "red"
+        confidence = item.metadata.get("reasons", {}).get("confidence", item.score)
+        conf_bar = _confidence_bar(float(confidence))
+
         sections.append(
-            f"[bold {rec_style}]► {item.recommendation}[/bold {rec_style}]"
+            f"[bold {rec_style}]► AI recommends: {item.recommendation}[/bold {rec_style}]"
+            f"  Confidence: {conf_bar}"
         )
 
         # ── Title ────────────────────────────────────────────────
@@ -222,47 +303,82 @@ class FeedbackCLI:
         return f"  [bold]{label}:[/bold]         {value}"
 
     def _build_why_section(self, item: QueueItem) -> str:
-        """Build the 'Why this recommendation?' section from metadata."""
+        """Build the 'Why this recommendation?' section with enhanced factor breakdown."""
         reasons_data = item.metadata.get("reasons", item.metadata.get("why", {}))
         if not reasons_data or not isinstance(reasons_data, dict):
             return ""
 
         lines: list[str] = ["[bold cyan]Why this recommendation?[/bold cyan]"]
 
+        # Source quality
         source_quality = reasons_data.get("source_quality")
         if source_quality is not None:
-            color = _score_color(float(source_quality))
+            sq = float(source_quality)
+            color = _score_color(sq)
+            indicator = "✓" if sq >= 0.7 else "⚠" if sq >= 0.4 else "✗"
             lines.append(
-                f"  [green]✓[/green] Source quality: "
-                f"[{color}]{float(source_quality):.2f}[/{color}]"
+                f"  [{color}]{indicator}[/{color}] Source quality: "
+                f"[{color}]{sq:.2f}[/{color}]"
             )
 
+        # Freshness
         freshness = reasons_data.get("freshness")
         if freshness is not None:
             freshness_label = str(freshness)
             fresh_color = "green" if freshness_label.lower() in ("high", "very high") else (
                 "yellow" if freshness_label.lower() == "medium" else "red"
             )
+            indicator = "✓" if fresh_color == "green" else "⚠" if fresh_color == "yellow" else "✗"
             lines.append(
-                f"  [green]✓[/green] Freshness: [{fresh_color}]{freshness_label}[/{fresh_color}]"
+                f"  [{fresh_color}]{indicator}[/{fresh_color}] Freshness: "
+                f"[{fresh_color}]{freshness_label}[/{fresh_color}]"
             )
 
+        # Keywords
         keywords = reasons_data.get("keywords")
         if keywords:
             kw_list = keywords if isinstance(keywords, list) else [keywords]
-            kw_str = ", ".join(str(k) for k in kw_list[:5])
+            kw_str = ", ".join(f"[cyan]{k}[/cyan]" for k in kw_list[:5])
             lines.append(f"  [green]✓[/green] Keywords: {kw_str}")
 
+        # Similar approved
         similar = reasons_data.get("similar_approved")
         if similar is not None:
-            lines.append(f"  [green]✓[/green] Similar approved articles: {similar}")
+            sim_val = int(similar)
+            sim_color = "green" if sim_val >= 20 else "yellow" if sim_val >= 5 else "red"
+            lines.append(
+                f"  [{sim_color}]✓[/{sim_color}] Similar approved articles: {sim_val}"
+            )
 
+        # Duplicates check
+        duplicates = reasons_data.get("duplicates")
+        if duplicates is not None:
+            dup_val = int(duplicates)
+            dup_color = "red" if dup_val > 0 else "green"
+            lines.append(
+                f"  [{dup_color}]{'⚠' if dup_val > 0 else '✓'}[/{dup_color}] "
+                f"Duplicate potential: {dup_val}"
+            )
+
+        # Trend
+        trend = reasons_data.get("trend")
+        if trend is not None:
+            trend_label = str(trend)
+            trend_color = "green" if "up" in trend_label.lower() else (
+                "yellow" if "stable" in trend_label.lower() else "red"
+            )
+            lines.append(
+                f"  [{trend_color}]✓[/{trend_color}] Trend: {trend_label}"
+            )
+
+        # Confidence
         confidence = reasons_data.get("confidence")
         if confidence is not None:
-            color = _score_color(float(confidence))
+            cf = float(confidence)
+            color = _score_color(cf)
             lines.append(
                 f"  [green]✓[/green] Confidence: "
-                f"[{color}]{float(confidence):.2f}[/{color}]"
+                f"[{color}]{_confidence_bar(cf)}[/{color}]"
             )
 
         return "\n".join(lines)
@@ -273,7 +389,7 @@ class FeedbackCLI:
         """Show available keyboard shortcuts."""
         self._console.print(
             "[dim]  [A]pprove  [R]eject  [S]kip  [Q]uit  "
-            "[O]pen URL  [U]ndo[/dim]"
+            "[O]pen URL  [U]ndo  [H]istory[/dim]"
         )
 
     # ── Decision ─────────────────────────────────────────────────────
@@ -283,6 +399,7 @@ class FeedbackCLI:
 
         Returns (decision, reason_code, comment).
         Special return: Decision.SKIP with reason "quit" means user wants to quit.
+        Special return: Decision.SKIP with reason "history" means user wants to see history.
         """
         self._show_shortcuts()
 
@@ -314,12 +431,16 @@ class FeedbackCLI:
                 self._undo_last()
                 continue  # After undo, re-show item
 
+            if raw in ("H", "HISTORY"):
+                self.show_history()
+                continue  # After showing history, ask again
+
             # ── Legacy numbered menu ─────────────────────────────
             if raw in ("1", "2", "3"):
                 return self._handle_numbered_choice(int(raw))
 
             self._console.print(
-                "[yellow]  Unknown command. Use A/R/S/Q/O/U or 1/2/3[/yellow]"
+                "[yellow]  Unknown command. Use A/R/S/Q/O/U/H or 1/2/3[/yellow]"
             )
 
     def _handle_numbered_choice(self, choice: int) -> Tuple[Decision, str, Optional[str]]:
@@ -405,7 +526,7 @@ class FeedbackCLI:
     def record_decision(
         self, item: QueueItem, decision: Decision, reason: str, comment: Optional[str],
     ) -> None:
-        """Record a decision for undo and stats tracking."""
+        """Record a decision for undo, stats, and learning tracking."""
         elapsed = time.time() - self._session_stats.start_time
         self._session_stats.decision_times.append(time.time())
 
@@ -416,13 +537,178 @@ class FeedbackCLI:
         elif decision == Decision.SKIP:
             self._session_stats.skipped += 1
 
-        self._undo_stack.append(SessionDecision(
+        # Check if human agrees with AI
+        ai_agrees = decision.value.upper() == item.recommendation.upper()
+
+        session_decision = SessionDecision(
             item=item,
             decision=decision,
             reason=reason,
             comment=comment,
             timestamp=time.time(),
-        ))
+            ai_agrees=ai_agrees,
+        )
+
+        self._undo_stack.append(session_decision)
+        self._session_stats._decisions_list.append(session_decision)
+
+        # Track learning growth
+        approved = decision == Decision.APPROVE
+        self._session_stats.record_source(item.source, approved)
+        self._session_stats.record_category(item.category, approved)
+
+        reasons_data = item.metadata.get("reasons", {})
+        keywords = reasons_data.get("keywords", [])
+        if isinstance(keywords, list):
+            self._session_stats.record_keywords(keywords)
+
+        confidence = reasons_data.get("confidence", item.score)
+        self._session_stats.record_confidence(float(confidence))
+
+    # ── Learning Updated Panel ───────────────────────────────────────
+
+    def show_learning_update(
+        self, item: QueueItem, decision: Decision, reason: str,
+    ) -> None:
+        """Show how the system's learning profile changes after a decision."""
+        reasons_data = item.metadata.get("reasons", {})
+        source = item.source
+        category = item.category
+        keywords = reasons_data.get("keywords", [])
+        confidence = float(reasons_data.get("confidence", item.score))
+
+        approved = decision == Decision.APPROVE
+        stats = self._session_stats
+
+        # Build source profile update
+        source_stats = stats.sources_seen.get(source, {"approved": 0, "rejected": 0})
+        total_source = source_stats["approved"] + source_stats["rejected"]
+        source_rate = (
+            source_stats["approved"] / total_source if total_source > 0 else 0.0
+        )
+
+        # Build category profile update
+        cat_stats = stats.categories_seen.get(category, {"approved": 0, "rejected": 0})
+        total_cat = cat_stats["approved"] + cat_stats["rejected"]
+        cat_rate = cat_stats["approved"] / total_cat if total_cat > 0 else 0.0
+
+        # Build confidence trend
+        trend = stats.confidence_trend
+        avg_confidence = sum(trend) / len(trend) if trend else confidence
+        trend_direction = "→ stable"
+        if len(trend) >= 2:
+            if trend[-1] > trend[-2]:
+                trend_direction = "↗ rising"
+            elif trend[-1] < trend[-2]:
+                trend_direction = "↘ falling"
+
+        # Build panel content
+        lines: list[str] = []
+
+        # Source profile
+        source_color = _score_color(source_rate)
+        lines.append(
+            f"  [bold]Source profile:[/bold] {source}\n"
+            f"    Approval rate: [{source_color}]{source_rate:.0%}[/{source_color}] "
+            f"({source_stats['approved']}A / {source_stats['rejected']}R from {total_source} reviews)"
+        )
+
+        # Category profile
+        cat_color = _score_color(cat_rate)
+        lines.append(
+            f"  [bold]Category:[/bold] {category}\n"
+            f"    Approval rate: [{cat_color}]{cat_rate:.0%}[/{cat_color}] "
+            f"({cat_stats['approved']}A / {cat_stats['rejected']}R)"
+        )
+
+        # Keywords update
+        if keywords:
+            kw_display = ", ".join(f"[cyan]{k}[/cyan]" for k in keywords[:4])
+            kw_freq = stats.keywords_seen.get(keywords[0], 1) if keywords else 0
+            lines.append(
+                f"  [bold]Keywords:[/bold] {kw_display}\n"
+                f"    Frequency: {kw_freq}x seen"
+            )
+
+        # Confidence trend
+        conf_color = _score_color(avg_confidence)
+        lines.append(
+            f"  [bold]Confidence:[/bold] "
+            f"[{conf_color}]{_confidence_bar(avg_confidence)}[/{conf_color}] "
+            f"{trend_direction}"
+        )
+
+        # Decision impact
+        impact = "✓ Reinforces" if approved else "✗ Penalizes"
+        impact_color = "green" if approved else "red"
+        lines.append(
+            f"\n  [{impact_color}]{impact}[/{impact_color}] "
+            f"{category}/{source} profile"
+        )
+
+        panel = Panel(
+            "\n".join(lines),
+            title="[bold magenta]📚 Learning Updated[/bold magenta]",
+            border_style="magenta",
+            box=box.ROUNDED,
+            padding=(0, 1),
+        )
+        self._console.print(panel)
+
+    # ── Session History ──────────────────────────────────────────────
+
+    def show_history(self, last_n: int = 10) -> None:
+        """Show the last N decisions made in this session."""
+        decisions = self._undo_stack
+
+        if not decisions:
+            self._console.print(
+                Panel(
+                    "[dim]No decisions made yet in this session.[/dim]",
+                    title="[bold]📋 Session History[/bold]",
+                    border_style="dim",
+                )
+            )
+            return
+
+        recent = decisions[-last_n:]
+
+        table = Table(
+            title=f"📋 Session History (last {len(recent)} of {len(decisions)})",
+            box=box.ROUNDED,
+        )
+        table.add_column("#", style="dim", width=3)
+        table.add_column("Time", style="dim", width=8)
+        table.add_column("Decision", width=10)
+        table.add_column("Title", max_width=40)
+        table.add_column("Source", max_width=20)
+        table.add_column("Score", width=6)
+        table.add_column("Agree", width=5)
+
+        for i, sd in enumerate(recent, 1):
+            dec_color = "green" if sd.decision == Decision.APPROVE else (
+                "red" if sd.decision == Decision.REJECT else "yellow"
+            )
+            agree_mark = "[green]✓[/green]" if sd.ai_agrees else "[red]✗[/red]"
+            score_color = _score_color(sd.item.score)
+
+            table.add_row(
+                str(i),
+                sd.time_str,
+                f"[{dec_color}]{sd.decision_label}[/{dec_color}]",
+                sd.title_or_id[:40],
+                sd.item.source[:20],
+                f"[{score_color}]{sd.item.score:.2f}[/{score_color}]",
+                agree_mark,
+            )
+
+        self._console.print(table)
+
+        # Undo info
+        self._console.print(
+            f"  [dim]Type [U]ndo to revert the last decision "
+            f"({len(self._undo_stack)} in stack)[/dim]"
+        )
 
     # ── Open URL ─────────────────────────────────────────────────────
 
@@ -461,6 +747,189 @@ class FeedbackCLI:
             f"→  [bold]You:[/bold] [{dec_color}]{human}[/{dec_color}]"
         )
 
+    # ── JSON Session Export ──────────────────────────────────────────
+
+    def export_session(self, output_dir: str = ".") -> Optional[str]:
+        """Export session data to a JSON file.
+
+        Returns the file path if successful, None otherwise.
+        """
+        stats = self._session_stats
+        export_data = {
+            "session": {
+                "id": self._session_id,
+                "user_id": self._user_id,
+                "started_at": datetime.fromtimestamp(
+                    stats.start_time, tz=timezone.utc
+                ).isoformat(),
+                "ended_at": datetime.now(timezone.utc).isoformat(),
+                "duration_seconds": stats.elapsed,
+            },
+            "statistics": {
+                "total_items": stats.total,
+                "approved": stats.approved,
+                "rejected": stats.rejected,
+                "skipped": stats.skipped,
+                "processed": stats.processed,
+                "approval_rate": (
+                    stats.approved / stats.processed if stats.processed > 0 else 0.0
+                ),
+                "avg_decision_time": stats.avg_time,
+                "agreement_rate": stats.agreement_rate,
+                "records_sent": stats.records_sent,
+            },
+            "learning_growth": {
+                "sources_profiled": len(stats.sources_seen),
+                "categories_profiled": len(stats.categories_seen),
+                "unique_keywords": len(stats.keywords_seen),
+                "top_keywords": sorted(
+                    stats.keywords_seen.items(), key=lambda x: x[1], reverse=True
+                )[:10],
+                "confidence_trend": stats.confidence_trend,
+                "avg_confidence": (
+                    sum(stats.confidence_trend) / len(stats.confidence_trend)
+                    if stats.confidence_trend
+                    else 0.0
+                ),
+            },
+            "decisions": [],
+        }
+
+        # Export each decision
+        for sd in self._undo_stack:
+            decision_entry = {
+                "timestamp": datetime.fromtimestamp(
+                    sd.timestamp, tz=timezone.utc
+                ).isoformat(),
+                "decision": sd.decision.value,
+                "reason": sd.reason,
+                "comment": sd.comment,
+                "ai_agrees": sd.ai_agrees,
+                "item": {
+                    "id": sd.item.id,
+                    "article_id": sd.item.article_id,
+                    "title": sd.item.title,
+                    "url": sd.item.url,
+                    "provider": sd.item.provider,
+                    "source": sd.item.source,
+                    "category": sd.item.category,
+                    "topic": sd.item.topic,
+                    "score": sd.item.score,
+                    "recommendation": sd.item.recommendation,
+                },
+            }
+            export_data["decisions"].append(decision_entry)
+
+        # Write to file
+        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"feedback_session_{timestamp_str}.json"
+        filepath = Path(output_dir) / filename
+
+        try:
+            filepath.write_text(json.dumps(export_data, indent=2, ensure_ascii=False))
+            return str(filepath)
+        except Exception as exc:
+            self._console.print(f"[red]  Export failed: {exc}[/red]")
+            return None
+
+    # ── Learning Progress Panel ──────────────────────────────────────
+
+    def show_learning_progress(self) -> None:
+        """Show final Learning Progress panel — growth of system knowledge."""
+        stats = self._session_stats
+
+        lines: list[str] = []
+
+        # ── Knowledge Growth ─────────────────────────────────────
+        lines.append("[bold]🧠 Knowledge Growth[/bold]")
+        lines.append(f"  Articles reviewed: [cyan]{stats.processed}[/cyan]")
+        lines.append(f"  Source profiles: [cyan]{len(stats.sources_seen)}[/cyan]")
+        lines.append(f"  Category profiles: [cyan]{len(stats.categories_seen)}[/cyan]")
+        lines.append(f"  Keywords learned: [cyan]{len(stats.keywords_seen)}[/cyan]")
+        lines.append("")
+
+        # ── Source Profiles ──────────────────────────────────────
+        if stats.sources_seen:
+            lines.append("[bold]📊 Source Profiles[/bold]")
+            for source, s_stats in sorted(
+                stats.sources_seen.items(),
+                key=lambda x: x[1]["approved"] / max(x[1]["approved"] + x[1]["rejected"], 1),
+                reverse=True,
+            ):
+                total = s_stats["approved"] + s_stats["rejected"]
+                rate = s_stats["approved"] / total if total > 0 else 0.0
+                color = _score_color(rate)
+                bar = _confidence_bar(rate)
+                lines.append(
+                    f"  [{color}]●[/{color}] {source[:30]:<30} "
+                    f"[{color}]{rate:.0%}[/{color}] "
+                    f"({s_stats['approved']}A/{s_stats['rejected']}R)"
+                )
+            lines.append("")
+
+        # ── Category Breakdown ───────────────────────────────────
+        if stats.categories_seen:
+            lines.append("[bold]📂 Category Breakdown[/bold]")
+            for cat, c_stats in sorted(
+                stats.categories_seen.items(),
+                key=lambda x: x[1]["approved"] / max(x[1]["approved"] + x[1]["rejected"], 1),
+                reverse=True,
+            ):
+                total = c_stats["approved"] + c_stats["rejected"]
+                rate = c_stats["approved"] / total if total > 0 else 0.0
+                color = _score_color(rate)
+                lines.append(
+                    f"  [{color}]●[/{color}] {cat:<20} "
+                    f"[{color}]{rate:.0%}[/{color}] "
+                    f"({c_stats['approved']}A/{c_stats['rejected']}R)"
+                )
+            lines.append("")
+
+        # ── Top Keywords ─────────────────────────────────────────
+        if stats.keywords_seen:
+            lines.append("[bold]🔑 Top Keywords Learned[/bold]")
+            top_kw = sorted(stats.keywords_seen.items(), key=lambda x: x[1], reverse=True)[:8]
+            for kw, count in top_kw:
+                bar_len = min(count, 20)
+                bar = "█" * bar_len
+                lines.append(f"  [cyan]{kw:<20}[/cyan] {bar} ({count}x)")
+            lines.append("")
+
+        # ── Confidence Trend ─────────────────────────────────────
+        if stats.confidence_trend:
+            avg_conf = sum(stats.confidence_trend) / len(stats.confidence_trend)
+            min_conf = min(stats.confidence_trend)
+            max_conf = max(stats.confidence_trend)
+            trend_color = _score_color(avg_conf)
+
+            lines.append("[bold]📈 Confidence Trend[/bold]")
+            lines.append(
+                f"  Average: [{trend_color}]{_confidence_bar(avg_conf)}[/{trend_color}]"
+            )
+            lines.append(f"  Range: [{_score_color(min_conf)}]{min_conf:.2f}[/{_score_color(min_conf)}] "
+                         f"→ [{_score_color(max_conf)}]{max_conf:.2f}[/{_score_color(max_conf)}]")
+            lines.append(f"  Samples: {len(stats.confidence_trend)}")
+            lines.append("")
+
+        # ── Agreement Summary ────────────────────────────────────
+        if stats.processed > 0:
+            agree_rate = stats.agreement_rate
+            agree_color = "green" if agree_rate >= 0.7 else "yellow" if agree_rate >= 0.4 else "red"
+            lines.append("[bold]🤝 Human-AI Agreement[/bold]")
+            lines.append(
+                f"  Agreement rate: [{agree_color}]{agree_rate:.0%}[/{agree_color}] "
+                f"({stats.approved + stats.rejected} decisions)"
+            )
+
+        panel = Panel(
+            "\n".join(lines),
+            title="[bold green]🌱 Learning Progress — Session Complete[/bold green]",
+            border_style="green",
+            box=box.DOUBLE,
+            padding=(1, 2),
+        )
+        self._console.print(panel)
+
     # ── Session Summary ──────────────────────────────────────────────
 
     def show_session_summary(
@@ -497,6 +966,15 @@ class FeedbackCLI:
             self._format_time(stats.avg_time) if stats.avg_time > 0 else "N/A",
         )
         table.add_row("FeedbackRecords sent", str(records_sent))
+
+        # Agreement rate
+        if stats.processed > 0:
+            agree_rate = stats.agreement_rate
+            agree_color = "green" if agree_rate >= 0.7 else "yellow" if agree_rate >= 0.4 else "red"
+            table.add_row(
+                "Human-AI agreement",
+                f"[{agree_color}]{agree_rate:.0%}[/{agree_color}]",
+            )
 
         self._console.print(table)
 
