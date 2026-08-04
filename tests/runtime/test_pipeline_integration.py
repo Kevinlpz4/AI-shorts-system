@@ -9,7 +9,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from foundation.result.result import Result
 from runtime.contracts.job_result import JobContext
 from runtime.contracts.source_definition import SourceDefinition
 from runtime.event_bridge import EventBridge

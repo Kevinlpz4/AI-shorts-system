@@ -15,13 +15,11 @@ Usage::
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict
 
 from foundation.result.result import Result
 from runtime.contracts.pipeline_context import PipelineContext
 from runtime.contracts.pipeline_result import StepResult
 from runtime.event_bridge import EventBridge, RoutingEvent
-from runtime.pipelines.base import PipelineStep
 
 logger = logging.getLogger(__name__)
 

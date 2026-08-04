@@ -10,7 +10,6 @@ Covers:
 """
 from __future__ import annotations
 
-import pytest
 
 from runtime.registry.step_registry import StepRegistry
 

@@ -14,8 +14,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from foundation.result.result import Result
-from runtime.contracts.job_result import JobContext, JobResult
-from runtime.contracts.pipeline_context import PipelineContext
+from runtime.contracts.job_result import JobContext
 from runtime.contracts.pipeline_result import StepResult
 from runtime.event_bridge import EventBridge
 from runtime.jobs.ingestion_job import IngestionJob
@@ -147,7 +146,7 @@ class TestIngestionJob:
         job = IngestionJob(registry, event_bridge=bridge)
         ctx = JobContext()
 
-        result = await job.execute(ctx)
+        await job.execute(ctx)
 
         events = bridge.drain()
         event_types = [e.event_type for e in events]
@@ -195,7 +194,7 @@ class TestIngestionJob:
         job = IngestionJob(registry)
         ctx = JobContext()
 
-        result = await job.execute(ctx)
+        await job.execute(ctx)
 
         # normalize and dedup should NOT have been called
         normalize.execute.assert_not_awaited()

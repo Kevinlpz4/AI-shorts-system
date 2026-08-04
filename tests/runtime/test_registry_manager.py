@@ -57,7 +57,6 @@ class TestRegistryManager:
     def test_sub_registries_are_independent(self) -> None:
         """Each sub-registry operates independently."""
         from runtime.contracts.source_definition import SourceDefinition
-        from runtime.registry.job_registry import JobRegistry
 
         manager = RegistryManager()
 

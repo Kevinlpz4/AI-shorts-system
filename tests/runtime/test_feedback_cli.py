@@ -18,17 +18,14 @@ from __future__ import annotations
 
 import json
 import time
-import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 
 from runtime.feedback.cli import (
     FeedbackCLI,
     SessionStats,
     SessionDecision,
-    _score_color,
     _confidence_bar,
 )
 from runtime.feedback.models import Decision

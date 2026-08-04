@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from runtime.contracts.source_definition import SourceDefinition
 from runtime.providers.catalog import ALL_SOURCES, get_source, get_sources_by_technology
 from runtime.providers.rss.crunchyroll_news import CRUNCHYROLL_NEWS_SOURCE
 from runtime.providers.rss.crunchyroll_anime import CRUNCHYROLL_ANIME_SOURCE

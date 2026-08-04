@@ -7,7 +7,6 @@ Covers:
 """
 from __future__ import annotations
 
-from uuid import uuid4
 
 import pytest
 
@@ -15,8 +14,7 @@ from runtime.contracts.job_result import JobContext, JobResult
 from runtime.contracts.pipeline_context import PipelineContext
 from runtime.contracts.pipeline_result import StepResult
 from runtime.pipelines.base import PipelineStep
-from runtime.jobs.base import Job
-from foundation.result.result import Result, Success
+from foundation.result.result import Result
 
 
 class MockPipelineStep:

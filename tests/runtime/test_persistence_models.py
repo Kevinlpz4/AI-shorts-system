@@ -14,7 +14,6 @@ import pytest
 
 pytest.importorskip("sqlalchemy")
 
-from sqlalchemy import text  # noqa: E402
 
 from runtime.persistence.engine import RuntimeEngine  # noqa: E402
 from runtime.persistence.models import (  # noqa: E402

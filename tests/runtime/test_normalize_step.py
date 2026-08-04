@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import pytest
 
-from foundation.result.result import Result
 from runtime.contracts.pipeline_context import PipelineContext
 from runtime.contracts.provider_result import ProviderResult
 from runtime.pipelines.normalize_step import NormalizeStep
@@ -108,7 +107,7 @@ class TestNormalizeStep:
         )
         ctx.set_step_result("ingest", [provider_result])
 
-        result = await step.execute(ctx)
+        await step.execute(ctx)
 
         normalized = ctx.get_step_result("normalize")
         assert normalized[0]["subreddit"] == "artificial"

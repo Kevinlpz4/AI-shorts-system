@@ -91,7 +91,6 @@ async def cmd_ingest(runtime: dict) -> None:
     from uuid import uuid4
     from runtime.contracts.job_result import JobContext
 
-    console = runtime["metrics"]
     job = runtime["ingestion_job"]
 
     print("\n🔄 Ejecutando ciclo de ingesta...\n")

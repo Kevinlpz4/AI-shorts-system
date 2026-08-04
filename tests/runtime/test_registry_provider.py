@@ -12,9 +12,8 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
 
-from runtime.registry.provider_registry import ProviderAdapter, ProviderRegistry
+from runtime.registry.provider_registry import ProviderRegistry
 
 
 class FakeProvider:

@@ -12,8 +12,8 @@ from __future__ import annotations
 import json
 import time
 import webbrowser
-from dataclasses import dataclass, field, asdict
-from typing import Optional, Tuple, List
+from dataclasses import dataclass, field
+from typing import Optional, Tuple
 from datetime import datetime, timezone
 import uuid
 from pathlib import Path
@@ -21,11 +21,9 @@ from pathlib import Path
 from rich import box
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import IntPrompt, Prompt
+from rich.prompt import Prompt
 from rich.table import Table
-from rich.text import Text
 
-from foundation.result.result import Result
 from runtime.feedback.models import Decision
 from runtime.feedback.queue import DecisionQueue, QueueItem
 from runtime.feedback.reasons import FeedbackReasons
@@ -114,7 +112,6 @@ class SessionStats:
     @property
     def agreement_rate(self) -> float:
         """Rate at which human agrees with AI recommendation."""
-        from runtime.feedback.models import Decision as D
         total_decisions = self.approved + self.rejected
         if total_decisions == 0:
             return 0.0
@@ -527,7 +524,6 @@ class FeedbackCLI:
         self, item: QueueItem, decision: Decision, reason: str, comment: Optional[str],
     ) -> None:
         """Record a decision for undo, stats, and learning tracking."""
-        elapsed = time.time() - self._session_stats.start_time
         self._session_stats.decision_times.append(time.time())
 
         if decision == Decision.APPROVE:

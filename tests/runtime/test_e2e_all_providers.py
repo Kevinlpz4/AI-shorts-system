@@ -26,7 +26,6 @@ import pytest
 
 from runtime.providers.rss.rss_provider import RSSProvider
 from runtime.providers.reddit.reddit_provider import RedditProvider
-from runtime.providers.api.api_provider import APIProvider
 from runtime.providers.api.hackernews import _hn_transform
 from runtime.providers.api.github import github_transform
 from runtime.monitoring.pipeline_metrics import PipelineMetrics
@@ -365,7 +364,7 @@ async def test_e2e_all_providers_summary() -> None:
     # Print summary
     agg = metrics.get_aggregate_stats()
     print(f"\n{'='*60}")
-    print(f"E2E Provider Validation Summary")
+    print("E2E Provider Validation Summary")
     print(f"{'='*60}")
     for source_id, r in sorted(results.items()):
         status_icon = "✅" if r["status"] == "ok" else "⚠️"

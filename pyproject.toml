@@ -1,0 +1,54 @@
+# Ruff configuration for AI_Shorts_System
+#
+# EXCLUSION POLICY — READ BEFORE CHANGING:
+# The directories below are EXCLUDED from Ruff checks NOT because their code
+# is clean, but because they belong to FROZEN Bounded Contexts (AD-002) or
+# legacy monolith code pending a future modernization EPIC.
+#
+# FROZEN Bounded Contexts (AD-002) — do NOT modify, do NOT lint:
+#  - src/learning, src/ingestion, src/foundation, research
+#  - tests/learning, tests/ingestion, tests/foundation, tests/research
+#
+# Legacy monolith (pre-EPIC 8, pending modernization EPIC):
+#  - agents, domain, infrastructure, pipelines, presentation, scripts,
+#    services, app, application, modules, models
+#  - tests/domain, tests/application, tests/infrastructure,
+#    tests/presentation, tests/conftest.py, tests/test_ideas.py,
+#    tests/test_scripts.py
+#
+# These exclusions are TEMPORARY and MUST be removed when a future
+# modernization EPIC opens those scopes. Do NOT let them become permanent.
+[tool.ruff]
+# Only the Runtime scope (EPIC 8) is linted.
+exclude = [
+    # Frozen Bounded Contexts (AD-002)
+    "src/learning",
+    "src/ingestion",
+    "src/foundation",
+    "research",
+    # Frozen BC tests
+    "tests/learning",
+    "tests/ingestion",
+    "tests/foundation",
+    "tests/research",
+    # Legacy monolith (pending modernization EPIC)
+    "agents",
+    "domain",
+    "infrastructure",
+    "pipelines",
+    "presentation",
+    "scripts",
+    "services",
+    "app",
+    "application",
+    "modules",
+    "models",
+    # Legacy tests and shared test scaffolding
+    "tests/domain",
+    "tests/application",
+    "tests/infrastructure",
+    "tests/presentation",
+    "tests/conftest.py",
+    "tests/test_ideas.py",
+    "tests/test_scripts.py",
+]

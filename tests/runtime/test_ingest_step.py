@@ -14,7 +14,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from foundation.result.result import Result
 from runtime.contracts.pipeline_context import PipelineContext
 from runtime.contracts.source_definition import SourceDefinition
 from runtime.pipelines.ingest_step import IngestStep

@@ -35,7 +35,6 @@ class TestFeedbackE2E:
     def test_complete_feedback_cycle(self):
         """Test complete feedback cycle from queue to analytics."""
         queue = DecisionQueue()
-        reasons = FeedbackReasons()
         analytics = AnalyticsCollector()
 
         # Add items to queue
@@ -206,7 +205,6 @@ class TestFeedbackE2E:
     def test_session_workflow(self):
         """Test creating and completing a decision session."""
         queue = DecisionQueue()
-        reasons = FeedbackReasons()
 
         session = DecisionSession(
             id=str(uuid.uuid4()),

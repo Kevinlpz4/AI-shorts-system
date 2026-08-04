@@ -14,8 +14,7 @@ from __future__ import annotations
 import logging
 import random
 import time
-from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from runtime.simulation.charts import generate_all_charts
 from runtime.simulation.clock import VirtualClock

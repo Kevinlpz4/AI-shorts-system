@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import pytest
 
-from foundation.result.result import Result
 from runtime.contracts.pipeline_context import PipelineContext
 from runtime.pipelines.deduplicate_step import DeduplicateStep
 
@@ -91,7 +90,7 @@ class TestDeduplicateStep:
         ]
         ctx.set_step_result("normalize", items)
 
-        result = await step.execute(ctx)
+        await step.execute(ctx)
 
         deduplicated = ctx.get_step_result("deduplicate")
         # www. prefix and trailing slash are normalized
@@ -109,7 +108,7 @@ class TestDeduplicateStep:
         ]
         ctx.set_step_result("normalize", items)
 
-        result = await step.execute(ctx)
+        await step.execute(ctx)
 
         deduplicated = ctx.get_step_result("deduplicate")
         assert len(deduplicated) == 2

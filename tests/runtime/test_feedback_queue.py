@@ -3,7 +3,6 @@ Tests for decision queue.
 """
 from __future__ import annotations
 
-import pytest
 
 from runtime.feedback.queue import DecisionQueue, QueueItem
 

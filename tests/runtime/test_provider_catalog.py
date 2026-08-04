@@ -9,7 +9,6 @@ Covers:
 """
 from __future__ import annotations
 
-import pytest
 
 from runtime.providers.catalog import (
     ALL_SOURCES,

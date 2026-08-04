@@ -10,13 +10,10 @@ Covers:
 """
 from __future__ import annotations
 
-from unittest.mock import MagicMock
 
 import pytest
 
-from foundation.result.result import Result
 from runtime.contracts.pipeline_context import PipelineContext
-from runtime.contracts.pipeline_result import StepResult
 from runtime.event_bridge import EventBridge
 from runtime.pipelines.learning_step import LearningIntegrationStep
 

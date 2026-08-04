@@ -13,7 +13,6 @@ The transform function handles the multi-step fetch inline.
 """
 from __future__ import annotations
 
-import asyncio
 import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Any

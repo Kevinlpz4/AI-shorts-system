@@ -20,7 +20,6 @@ from urllib.parse import urlparse
 from foundation.result.result import Result
 from runtime.contracts.pipeline_context import PipelineContext
 from runtime.contracts.pipeline_result import StepResult
-from runtime.pipelines.base import PipelineStep
 
 logger = logging.getLogger(__name__)
 

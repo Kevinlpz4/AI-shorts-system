@@ -6,7 +6,6 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-import pytest
 
 from runtime.event_bridge import EventBridge
 from runtime.feedback.event_emitter import FeedbackEventEmitter
