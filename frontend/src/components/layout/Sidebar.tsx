@@ -13,6 +13,7 @@ import {
   Settings,
   PlusCircle,
   Terminal,
+  Cpu,
 } from "lucide-react";
 
 interface NavItem {
@@ -31,6 +32,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/scripts", label: "Scripts", icon: <ScrollText size={18} /> },
   { href: "/settings", label: "Settings", icon: <Settings size={18} /> },
   { href: "/terminal", label: "Terminal", icon: <Terminal size={18} /> },
+  { href: "/runtime", label: "Runtime", icon: <Cpu size={18} /> },
 ];
 
 const sidebarVariants = {

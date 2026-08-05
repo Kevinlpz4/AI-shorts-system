@@ -62,6 +62,10 @@ data/*.db-wal
 !data/ideas.json
 !data/scripts.json
 
+# Runtime artifacts (CLI-generated, repo root)
+simulation_reports/
+feedback_session_*.json
+
 # TypeScript build info
 *.tsbuildinfo
 
