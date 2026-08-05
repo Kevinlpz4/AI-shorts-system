@@ -5,7 +5,8 @@
 // Todas las operaciones CRUD se traducen a llamadas HTTP.
 // Trabaja con TopicData (plain data) — no con entidades del dominio.
 
-import { TopicData, SourceType, TopicStatusValue } from "@/types";
+import { TopicData, TopicStatusValue } from "@/types";
+import { mapTopicFromApi } from "@/infrastructure/api/mappers";
 import {
   ITopicRepository,
   TopicFilters,
@@ -261,49 +262,9 @@ export class ApiTopicRepository implements ITopicRepository {
 
   /** Mapea TopicResponse (API JSON) → TopicData (plain object) */
   private _mapResponse(data: TopicResponse): TopicData {
-    const scoreComp = data.score_components || {};
-
-    const sourceTypeRaw = String(data.source_type || "automatic");
-    const sourceType = this._parseSourceType(sourceTypeRaw);
-
-    return {
-      id: String(data.id),
-      title: String(data.title),
-      description: String(data.description || ""),
-      contentPreview: String(data.content_preview || ""),
-      sourceName: String(data.source_name),
-      sourceType,
-      status: this._parseStatus(String(data.status || "pending_review")),
-      score: {
-        relevance: Math.round(scoreComp.relevance || 0),
-        popularity: Math.round(scoreComp.popularity || 0),
-        recency: Math.round(scoreComp.recency || 0),
-        reliability: Math.round(scoreComp.reliability || 0),
-      },
-      scoreTotal: data.score_total ?? 0,
-      url: data.url || null,
-      author: data.author || null,
-      createdAt: data.created_at ? String(data.created_at) : new Date().toISOString(),
-      reviewedAt: data.reviewed_at ? String(data.reviewed_at) : null,
-      duplicateHash: data.duplicate_hash || null,
-    };
-  }
-
-  /** Convierte source_type string → SourceType enum */
-  private _parseSourceType(raw: string): SourceType {
-    const normalized = raw.toLowerCase();
-    for (const val of Object.values(SourceType)) {
-      if (val === normalized) return val;
-    }
-    return SourceType.AUTOMATIC;
-  }
-
-  /** Convierte status string → TopicStatusValue enum */
-  private _parseStatus(raw: string): TopicStatusValue {
-    const upper = raw.toUpperCase() as TopicStatusValue;
-    if (Object.values(TopicStatusValue).includes(upper)) {
-      return upper;
-    }
-    return TopicStatusValue.PENDING_REVIEW;
+    // Delegación al mapper compartido (infrastructure/api/mappers.ts).
+    // Único cast documentado: TopicResponse es una interface SIN index
+    // signature → no asignable directo a Record<string, unknown>.
+    return mapTopicFromApi(data as unknown as Record<string, unknown>);
   }
 }

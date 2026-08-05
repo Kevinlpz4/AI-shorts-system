@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import type { ScriptWithTopic } from "@/types";
-import { getApiBase } from "@/lib/utils";
+import { getApiBase, mapScriptFromApi } from "@/lib/utils";
 
 /** Genera scripts mock para desarrollo offline */
 function generateMockScripts(): ScriptWithTopic[] {
@@ -95,8 +95,18 @@ export const useScriptsStore = create<ScriptsState>((set, get) => ({
       const res = await fetch(`${base}/api/v1/scripts`);
       if (!res.ok) throw new Error("Failed to load scripts");
       const data = await res.json();
+      // Bug #13 (P0): el backend sirve snake_case (word_count, is_valid,
+      // created_at) → reutilizar mapScriptFromApi (lib/utils.ts) y
+      // enriquecer con topic_title/topic_score/topic_status tal como las
+      // sirve script_list.py (ScriptWithTopic las declara snake_case).
+      const scripts = (data.scripts as Record<string, unknown>[]).map((s) => ({
+        ...mapScriptFromApi(s),
+        topic_title: s.topic_title as string,
+        topic_score: s.topic_score as number,
+        topic_status: s.topic_status as string,
+      }));
       set({
-        scripts: data.scripts,
+        scripts,
         total: data.total,
         isLoading: false,
       });

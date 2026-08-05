@@ -4,7 +4,8 @@
 // Infrastructure: implementa ITopicSource usando el backend REST API.
 // Llama a POST /api/v1/discover y mapea la respuesta a TopicData[].
 
-import { TopicData, SourceType, TopicStatusValue } from "@/types";
+import { TopicData } from "@/types";
+import { mapTopicFromApi } from "@/infrastructure/api/mappers";
 import { ITopicSource } from "@/domain/ports/ITopicSource";
 
 /**
@@ -29,6 +30,12 @@ export class ApiTopicSource implements ITopicSource {
 
   /**
    * Descubre topics desde el backend API vía POST /api/v1/discover.
+   * Política source_names (P0, bug #7): NO se envía la key — los nombres
+   * del FE (`google-news`/`twitter`/`rss`) no existen en el registry
+   * backend (solo `google-news-rss`/`mock`) y producían 0 descubiertos
+   * vía SourceNotAvailableError. Sin la key, `discover.py` usa las fuentes
+   * default (`get_all_available()`). `sourceName` queda solo para reporting
+   * de errores y fallback del mapper.
    * @returns Array de TopicData mapeados desde la respuesta
    */
   async fetch(query?: string, limit: number = 10): Promise<TopicData[]> {
@@ -39,7 +46,6 @@ export class ApiTopicSource implements ITopicSource {
         body: JSON.stringify({
           query: query || undefined,
           limit,
-          source_names: [this.sourceName],
         }),
       });
 
@@ -64,46 +70,8 @@ export class ApiTopicSource implements ITopicSource {
 
   /** Mapea un topic del JSON de la API → TopicData */
   private _mapTopic(data: Record<string, unknown>): TopicData {
-    const scoreComp = (data.score_components as Record<string, number>) || {};
-    const sourceTypeRaw = String(data.source_type || "automatic");
-    const sourceType = this._parseSourceType(sourceTypeRaw);
-
-    return {
-      id: String(data.id),
-      title: String(data.title),
-      description: String(data.description || ""),
-      contentPreview: String(data.content_preview || ""),
-      sourceName: String(data.source_name || this.sourceName),
-      sourceType,
-      status: this._parseStatus(String(data.status || "pending_review")),
-      score: {
-        relevance: Math.round(scoreComp.relevance || 0),
-        popularity: Math.round(scoreComp.popularity || 0),
-        recency: Math.round(scoreComp.recency || 0),
-        reliability: Math.round(scoreComp.reliability || 0),
-      },
-      scoreTotal: typeof data.score_total === "number" ? data.score_total : 0,
-      url: data.url ? String(data.url) : null,
-      author: data.author ? String(data.author) : null,
-      createdAt: data.created_at ? String(data.created_at) : new Date().toISOString(),
-      reviewedAt: data.reviewed_at ? String(data.reviewed_at) : null,
-      duplicateHash: data.duplicate_hash ? String(data.duplicate_hash) : null,
-    };
-  }
-
-  private _parseSourceType(raw: string): SourceType {
-    const normalized = raw.toLowerCase();
-    for (const val of Object.values(SourceType)) {
-      if (val === normalized) return val;
-    }
-    return SourceType.AUTOMATIC;
-  }
-
-  private _parseStatus(raw: string): TopicStatusValue {
-    const upper = raw.toUpperCase() as TopicStatusValue;
-    if (Object.values(TopicStatusValue).includes(upper)) {
-      return upper;
-    }
-    return TopicStatusValue.PENDING_REVIEW;
+    // Delegación al mapper compartido con fallback al sourceName
+    // de este adapter (para payloads sin `source_name`).
+    return mapTopicFromApi(data, this.sourceName);
   }
 }

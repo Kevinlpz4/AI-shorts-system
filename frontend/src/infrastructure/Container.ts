@@ -40,9 +40,10 @@ class AppContainer {
     // ── Infra ─────────────────────────────────────
     this.repository = new ApiTopicRepository(baseUrl);
     this.sourceRegistry = new SourceRegistry();
-    this.sourceRegistry.register(new ApiTopicSource(baseUrl, "google-news"));
-    this.sourceRegistry.register(new ApiTopicSource(baseUrl, "twitter"));
-    this.sourceRegistry.register(new ApiTopicSource(baseUrl, "rss"));
+    // Una sola fuente API (política source_names P0): discover ya NO envía
+    // `source_names` → el backend usa las fuentes default. Con 3 registros,
+    // DiscoverTopics.execute emitiría 3 POSTs idénticos por ejecución.
+    this.sourceRegistry.register(new ApiTopicSource(baseUrl));
 
     // ── Use cases ─────────────────────────────────
     this.discoverTopics = new DiscoverTopics(this.repository, this.sourceRegistry);

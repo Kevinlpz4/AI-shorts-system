@@ -10,6 +10,7 @@ import { create } from "zustand";
 import { TopicData, ScriptData, ScriptRecommendations, StudioConfig } from "@/types";
 import { TopicStatusValue, SourceType } from "@/types";
 import { getApiBase, mapScriptFromApi } from "@/lib/utils";
+import { mapApprovedTopic } from "@/infrastructure/api/mappers";
 
 // ── State shape ──
 
@@ -389,7 +390,15 @@ export const useScriptStudioStore = create<ScriptStudioState>((set, get) => ({
       }
 
       const data = await res.json();
-      set({ approvedTopics: data.topics, isLoading: false });
+      // Bug #8 (P0): el backend sirve asdict(ResearchTopicDTO) en snake_case
+      // (score_total, source_name, created_at) → mapear a TopicData camelCase
+      // ANTES de asignar al store; TopicQueueItem lee scoreTotal/createdAt.
+      set({
+        approvedTopics: (data.topics as Record<string, unknown>[]).map((t) =>
+          mapApprovedTopic(t),
+        ),
+        isLoading: false,
+      });
     } catch (err) {
       set({
         isLoading: false,
